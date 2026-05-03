@@ -97,6 +97,8 @@ Además del MVC clásico, se añadió una **Service Layer** en `src/services/` p
 
 - autenticación JWT
 - emisión de access token y refresh token
+- cambio autenticado de contraseña
+- recuperación de contraseña por email registrado
 - control de acceso por roles
 - validación de requests
 - registro de pacientes y médicos
@@ -180,7 +182,11 @@ Al iniciar, la aplicación:
 - `POST /api/auth/register`
 - `POST /api/auth/register/doctor`
 - `POST /api/auth/refresh`
+- `POST /api/auth/recover-password`
+- `POST /api/auth/change-password`
 - `POST /api/auth/logout`
+
+El endpoint de recuperación pública quedó simplificado para usar únicamente el email registrado y una nueva contraseña que cumpla la misma política de seguridad definida para el registro.
 
 ### Usuarios
 

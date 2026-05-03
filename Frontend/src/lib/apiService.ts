@@ -81,6 +81,25 @@ export const apiService = {
       }
       return data;
     },
+    changePassword: async (data: { currentPassword: string; newPassword: string }) => {
+      const response = await fetch(`${API_URL}/auth/change-password`, {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify(data),
+      });
+      return handleResponse(response);
+    },
+    recoverPassword: async (data: {
+      email: string;
+      newPassword: string;
+    }) => {
+      const response = await fetch(`${API_URL}/auth/recover-password`, {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify(data),
+      });
+      return handleResponse(response);
+    },
     registerPatient: async (data: any) => {
       const response = await fetch(`${API_URL}/auth/register`, {
         method: "POST",

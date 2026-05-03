@@ -203,6 +203,38 @@ const options = {
                         },
                     },
                 },
+                ChangePasswordRequest: {
+                    type: 'object',
+                    required: ['currentPassword', 'newPassword'],
+                    properties: {
+                        currentPassword: {
+                            type: 'string',
+                            format: 'password',
+                            example: 'Actual1234*!',
+                        },
+                        newPassword: {
+                            type: 'string',
+                            format: 'password',
+                            example: 'NuevaClave1234*!',
+                        },
+                    },
+                },
+                RecoverPasswordRequest: {
+                    type: 'object',
+                    required: ['email', 'newPassword'],
+                    properties: {
+                        email: {
+                            type: 'string',
+                            format: 'email',
+                            example: 'juan@email.com',
+                        },
+                        newPassword: {
+                            type: 'string',
+                            format: 'password',
+                            example: 'NuevaClave1234*!',
+                        },
+                    },
+                },
                 RegisterPatientRequest: {
                     type: 'object',
                     required: ['nombre', 'email', 'password', 'tipoDocumento', 'identificacion'],

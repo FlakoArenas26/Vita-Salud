@@ -40,6 +40,16 @@ export interface LoginDto {
   password: string;
 }
 
+export interface ChangePasswordDto {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export interface RecoverPasswordDto {
+  email: string;
+  newPassword: string;
+}
+
 export interface RegisterUserDto {
   nombre: string;
   email: string;

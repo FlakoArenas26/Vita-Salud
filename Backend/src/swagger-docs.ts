@@ -29,6 +29,52 @@
 
 /**
  * @swagger
+ * /api/auth/change-password:
+ *   post:
+ *     tags: [Autenticación]
+ *     summary: Cambiar contraseña autenticada
+ *     description: Permite a un usuario autenticado cambiar su contraseña validando primero la clave actual.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ChangePasswordRequest'
+ *     responses:
+ *       200:
+ *         description: Contraseña actualizada correctamente.
+ *       400:
+ *         description: Datos inválidos o nueva contraseña no permitida.
+ *       401:
+ *         description: Token inválido o contraseña actual incorrecta.
+ */
+
+/**
+ * @swagger
+ * /api/auth/recover-password:
+ *   post:
+ *     tags: [Autenticación]
+ *     summary: Recuperar contraseña
+ *     description: Restablece la contraseña a partir del email registrado. Este endpoint soporta el flujo "Olvidé mi contraseña" del modal de acceso y reutiliza la misma política de contraseña segura aplicada en el registro.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RecoverPasswordRequest'
+ *     responses:
+ *       200:
+ *         description: Contraseña restablecida correctamente.
+ *       400:
+ *         description: Datos inválidos o nueva contraseña fuera de política.
+ *       404:
+ *         description: No se encontró un usuario con el email suministrado.
+ */
+
+/**
+ * @swagger
  * /api/auth/register:
  *   post:
  *     tags: [Autenticación]

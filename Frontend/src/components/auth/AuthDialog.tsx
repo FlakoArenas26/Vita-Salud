@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { LoginForm, RegisterForm } from "@/components/auth/AuthForms";
+import { ForgotPasswordForm, LoginForm, RegisterForm } from "@/components/auth/AuthForms";
 import { X } from "lucide-react";
 
 interface AuthDialogProps {
@@ -17,7 +17,7 @@ interface AuthDialogProps {
 export function AuthDialog({ initialMode, trigger }: AuthDialogProps) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState(initialMode);
+  const [mode, setMode] = useState<"login" | "register" | "forgot-password">(initialMode);
 
   /**
    * Maneja el éxito de la autenticación.
@@ -77,12 +77,18 @@ export function AuthDialog({ initialMode, trigger }: AuthDialogProps) {
                 <div className="relative p-5 sm:p-6 border-b bg-card rounded-t-2xl text-center">
                   <div className="pr-6 pl-6">
                     <h2 className="text-xl font-bold font-heading text-foreground">
-                      {mode === "login" ? "Iniciar Sesión" : "Crear Cuenta"}
+                      {mode === "login"
+                        ? "Iniciar Sesión"
+                        : mode === "register"
+                          ? "Crear Cuenta"
+                          : "Recuperar Contraseña"}
                     </h2>
                     <p className="text-sm text-muted-foreground mt-1">
                       {mode === "login"
                         ? "Accede a tu cuenta de VitaSalud sin salir de esta página."
-                        : "Regístrate de forma rápida y segura desde este portal."}
+                        : mode === "register"
+                          ? "Regístrate de forma rápida y segura desde este portal."
+                          : "Verifica tus datos y define una nueva contraseña."}
                     </p>
                   </div>
                   <button
@@ -100,12 +106,15 @@ export function AuthDialog({ initialMode, trigger }: AuthDialogProps) {
                     <LoginForm
                       onSuccess={handleSuccess}
                       onSwitchToRegister={() => setMode("register")}
+                      onForgotPassword={() => setMode("forgot-password")}
                     />
-                  ) : (
+                  ) : mode === "register" ? (
                     <RegisterForm
                       onSuccess={handleSuccess}
                       onSwitchToLogin={() => setMode("login")}
                     />
+                  ) : (
+                    <ForgotPasswordForm onSwitchToLogin={() => setMode("login")} />
                   )}
                 </div>
               </div>

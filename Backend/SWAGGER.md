@@ -54,6 +54,8 @@ Cuando ocurre un error:
 | `POST` | `/api/auth/register` | Registrar paciente | No |
 | `POST` | `/api/auth/register/doctor` | Registrar médico | No |
 | `POST` | `/api/auth/refresh` | Renovar access token | No |
+| `POST` | `/api/auth/recover-password` | Restablecer contraseña por email | No |
+| `POST` | `/api/auth/change-password` | Cambiar contraseña autenticado | Sí |
 | `POST` | `/api/auth/logout` | Cerrar sesión y revocar token actual | Sí |
 
 ### Usuarios
@@ -148,6 +150,41 @@ Body:
   "especialidad": "Cardiología",
   "experienciaAnios": 12
 }
+```
+
+### Flujo C1. Recuperar contraseña desde "Olvidé mi contraseña"
+
+Body:
+
+```json
+{
+  "email": "juan.perez@email.com",
+  "newPassword": "NuevaClave1234*!"
+}
+```
+
+Resultado esperado:
+
+- `200 OK`
+- la contraseña queda actualizada y el usuario puede volver a iniciar sesión
+- la nueva contraseña debe cumplir la misma política de seguridad del registro
+- el frontend puede sugerir una contraseña segura automáticamente igual que en el registro
+
+### Flujo C2. Cambiar contraseña autenticado
+
+Body:
+
+```json
+{
+  "currentPassword": "Paciente1234",
+  "newPassword": "PacienteNueva1234*!"
+}
+```
+
+Endpoint:
+
+```text
+POST /api/auth/change-password
 ```
 
 ### Flujo D. Consultar disponibilidad antes de agendar

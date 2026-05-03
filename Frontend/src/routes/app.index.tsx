@@ -39,6 +39,7 @@ import {
 import { apiService } from "@/lib/apiService";
 import {
   canScheduleOnDate,
+  getCurrentColombiaDateString,
   validateAppointmentSelection,
   WORKING_HOURS,
 } from "@/lib/appointmentRules";
@@ -389,12 +390,11 @@ function PacienteDashboard({ user }: { user: any }) {
           );
           const bookedHours = response.data || [];
           // Calcular horas disponibles: todas menos las ocupadas, y excluir siempre la hora original de la cita
-          const selectedDate = new Date(`${newFecha}T12:00:00`);
           const available = horasDisponibles.filter(
             (h) =>
               !bookedHours.includes(h) &&
               h !== citaToReschedule.hora &&
-              !validateAppointmentSelection(selectedDate, h, new Date()),
+              !validateAppointmentSelection(newFecha, h, new Date()),
           );
           setAvailableHours(available);
           setNewHora(""); // Reset hora al cambiar fecha
@@ -436,11 +436,7 @@ function PacienteDashboard({ user }: { user: any }) {
       return;
     }
 
-    const scheduleError = validateAppointmentSelection(
-      new Date(`${newFecha}T12:00:00`),
-      newHora,
-      new Date(),
-    );
+    const scheduleError = validateAppointmentSelection(newFecha, newHora, new Date());
     if (scheduleError) {
       Swal.fire({
         icon: "error",
@@ -804,7 +800,7 @@ function PacienteDashboard({ user }: { user: any }) {
                       return;
                     }
 
-                    if (!canScheduleOnDate(new Date(`${nextDate}T12:00:00`))) {
+                    if (!canScheduleOnDate(nextDate)) {
                       setNewFecha(nextDate);
                       setAvailableHours([]);
                       setNewHora("");
@@ -813,7 +809,7 @@ function PacienteDashboard({ user }: { user: any }) {
 
                     setNewFecha(nextDate);
                   }}
-                  min={new Date().toLocaleDateString('en-CA', { timeZone: 'America/Bogota' })}
+                  min={getCurrentColombiaDateString()}
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   Agenda disponible de lunes a sábado en bloques entre 07:00 y 17:00.

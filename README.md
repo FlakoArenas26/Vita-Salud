@@ -13,6 +13,7 @@ Este proyecto fue desarrollado en el marco de la asignatura de **Desarrollo Web*
 VitaSalud busca digitalizar y organizar la operación básica de una plataforma médica mediante:
 
 - autenticación por roles
+- recuperación y cambio de contraseña
 - gestión de usuarios y médicos
 - agendamiento y reprogramación de citas
 - atención médica con recomendaciones clínicas
@@ -28,6 +29,7 @@ VitaSalud busca digitalizar y organizar la operación básica de una plataforma 
 ### Paciente
 
 - registro e inicio de sesión
+- recuperación de contraseña por email desde el modal de acceso
 - consulta de médicos disponibles
 - agendamiento de citas
 - reprogramación de citas
@@ -284,6 +286,7 @@ Los usuarios se crean automáticamente al iniciar el backend por primera vez:
 ## ✨ Funcionalidades Destacadas
 
 - autenticación con control por roles
+- recuperación de contraseña y cambio seguro de credenciales
 - gestión de perfiles y médicos
 - agenda médica filtrada por usuario
 - reprogramación de citas con validaciones

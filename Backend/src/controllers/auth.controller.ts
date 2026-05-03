@@ -2,7 +2,13 @@ import { Request, Response } from 'express';
 import authService from '../services/auth.service';
 import tokenBlacklistService from '../services/tokenBlacklist.service';
 import { sendSuccess, sendError } from '../utils/response';
-import { LoginDto, RegisterUserDto, RegisterDoctorDto } from '../types';
+import {
+  ChangePasswordDto,
+  LoginDto,
+  RecoverPasswordDto,
+  RegisterUserDto,
+  RegisterDoctorDto,
+} from '../types';
 
 export class AuthController {
   async login(req: Request, res: Response): Promise<void> {
@@ -58,6 +64,33 @@ export class AuthController {
       sendSuccess(res, result, 200, 'Token renovado exitosamente');
     } catch (error) {
       sendError(res, (error as Error).message, 401);
+    }
+  }
+
+  /**
+   * Permite al usuario autenticado actualizar su contraseña validando la actual.
+   */
+  async changePassword(req: Request, res: Response): Promise<void> {
+    try {
+      await authService.changePassword(req.user!.sub, req.body as ChangePasswordDto);
+      sendSuccess(res, null, 200, 'Contraseña actualizada correctamente');
+    } catch (error) {
+      const msg = (error as Error).message;
+      sendError(res, msg, msg.includes('incorrecta') ? 401 : 400);
+    }
+  }
+
+  /**
+   * Recupera la contraseña por verificación de identidad desde el flujo
+   * "Olvidé mi contraseña".
+   */
+  async recoverPassword(req: Request, res: Response): Promise<void> {
+    try {
+      await authService.recoverPassword(req.body as RecoverPasswordDto);
+      sendSuccess(res, null, 200, 'Contraseña restablecida correctamente');
+    } catch (error) {
+      const msg = (error as Error).message;
+      sendError(res, msg, msg.includes('No se encontró') ? 404 : 400);
     }
   }
 }

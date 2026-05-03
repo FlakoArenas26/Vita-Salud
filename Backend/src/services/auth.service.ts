@@ -1,11 +1,35 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { User, Doctor } from '../models';
-import { DocumentType, LoginDto, RegisterUserDto, RegisterDoctorDto, UserRole } from '../types';
+import {
+  ChangePasswordDto,
+  DocumentType,
+  LoginDto,
+  RecoverPasswordDto,
+  RegisterUserDto,
+  RegisterDoctorDto,
+  UserRole,
+} from '../types';
 
 const SALT_ROUNDS = 12;
 
 export class AuthService {
+  /**
+   * Genera un hash seguro de contraseña usando la política central del sistema.
+   */
+  private async hashPassword(password: string) {
+    return bcrypt.hash(password, SALT_ROUNDS);
+  }
+
+  /**
+   * Valida la política de complejidad mínima de contraseña antes de persistirla.
+   */
+  private validatePasswordPolicy(password: string, label = 'La contraseña') {
+    if (!password || password.length < 12) {
+      throw new Error(`${label} debe tener mínimo 12 caracteres`);
+    }
+  }
+
   async login(dto: LoginDto) {
     const user = await User.findOne({ where: { email: dto.email } });
     if (!user) throw new Error('Credenciales inválidas');
@@ -51,7 +75,7 @@ export class AuthService {
     const exists = await User.findOne({ where: { email: dto.email } });
     if (exists) throw new Error('El email ya está registrado');
 
-    const hashed = await bcrypt.hash(dto.password, SALT_ROUNDS);
+    const hashed = await this.hashPassword(dto.password);
 
     const user = await User.create({
       ...dto,
@@ -85,11 +109,9 @@ export class AuthService {
     if (tpExists) throw new Error('La tarjeta profesional ya está registrada');
 
     // Validación estricta de contraseña (mínimo 12 caracteres)
-    if (!dto.password || dto.password.length < 12) {
-      throw new Error(`La contraseña de ${dto.email} es demasiado corta (mínimo 12 caracteres)`);
-    }
+    this.validatePasswordPolicy(dto.password, `La contraseña de ${dto.email}`);
 
-    const hashed = await bcrypt.hash(dto.password, SALT_ROUNDS);
+    const hashed = await this.hashPassword(dto.password);
 
     const user = await User.create({
       nombre: dto.nombre,
@@ -125,6 +147,48 @@ export class AuthService {
       }
     }
     return results;
+  }
+
+  /**
+   * Permite a un usuario autenticado cambiar su contraseña validando la clave actual.
+   */
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await User.findByPk(userId);
+    if (!user) throw new Error('Usuario no encontrado');
+
+    const isCurrentPasswordValid = await bcrypt.compare(dto.currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      throw new Error('La contraseña actual es incorrecta');
+    }
+
+    if (dto.currentPassword === dto.newPassword) {
+      throw new Error('La nueva contraseña debe ser diferente a la actual');
+    }
+
+    this.validatePasswordPolicy(dto.newPassword, 'La nueva contraseña');
+
+    user.password = await this.hashPassword(dto.newPassword);
+    await user.save();
+  }
+
+  /**
+   * Recupera la contraseña mediante validación del email registrado.
+   * Este flujo soporta la opción "Olvidé mi contraseña" del modal de acceso.
+   */
+  async recoverPassword(dto: RecoverPasswordDto) {
+    const user = await User.findOne({
+      where: {
+        email: dto.email,
+      },
+    });
+
+    if (!user) {
+      throw new Error('No se encontró un usuario que coincida con los datos suministrados');
+    }
+
+    this.validatePasswordPolicy(dto.newPassword, 'La nueva contraseña');
+    user.password = await this.hashPassword(dto.newPassword);
+    await user.save();
   }
 }
 

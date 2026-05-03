@@ -78,6 +78,7 @@ Define tipos de usuario/cita, datos compartidos y utilidades como la generación
 ## Funcionalidades destacadas del frontend
 
 - autenticación por roles con persistencia de sesión
+- recuperación de contraseña por email desde el mismo modal de acceso
 - dashboards diferenciados por perfil
 - agendamiento con consulta dinámica de disponibilidad
 - reprogramación y cancelación de citas
@@ -160,6 +161,7 @@ VITE_API_URL=http://localhost:3000/api
 - `src/lib/apiService.ts`: cliente HTTP centralizado
 - `src/lib/auth.ts`: tipos y utilidades de dominio frontend
 - `src/lib/appointmentRules.ts`: reglas compartidas de agenda laboral
+- `src/components/auth/AuthDialog.tsx`: modal de login, registro y recuperación
 
 ## Rol del frontend dentro de la arquitectura MVC
 

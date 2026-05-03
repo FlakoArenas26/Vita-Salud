@@ -6,6 +6,12 @@ export const loginValidator = [
   body('password').notEmpty().withMessage('La contraseña es requerida'),
 ];
 
+const passwordRules = body('newPassword')
+  .isLength({ min: 12 })
+  .withMessage('La nueva contraseña debe tener mínimo 12 caracteres')
+  .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])/)
+  .withMessage('La nueva contraseña debe contener al menos una mayúscula, una minúscula, un número y un carácter especial (!@#$%^&*)');
+
 export const registerPatientValidator = [
   body('nombre').trim().notEmpty().withMessage('El nombre es requerido'),
   body('email').isEmail().withMessage('Email inválido').normalizeEmail(),
@@ -28,4 +34,14 @@ export const registerDoctorValidator = [
   body('experienciaAnios')
     .isInt({ min: 0 })
     .withMessage('Los años de experiencia deben ser un número positivo'),
+];
+
+export const changePasswordValidator = [
+  body('currentPassword').notEmpty().withMessage('La contraseña actual es requerida'),
+  passwordRules,
+];
+
+export const recoverPasswordValidator = [
+  body('email').isEmail().withMessage('Email inválido').normalizeEmail(),
+  passwordRules,
 ];

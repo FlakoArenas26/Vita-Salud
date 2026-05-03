@@ -38,13 +38,15 @@ interface LoginFormProps {
   onSuccess?: () => void;
   /** Función para cambiar la vista al formulario de registro */
   onSwitchToRegister?: () => void;
+  /** Función para cambiar a la recuperación de contraseña */
+  onForgotPassword?: () => void;
 }
 
 /**
  * Componente que gestiona el formulario de Inicio de Sesión.
  * Incluye validaciones de intentos fallidos, bloqueo temporal y persistencia de sesión.
  */
-export function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
+export function LoginForm({ onSuccess, onSwitchToRegister, onForgotPassword }: LoginFormProps) {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -196,6 +198,16 @@ export function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
       </Button>
 
       <div className="text-center text-sm text-muted-foreground">
+        <button
+          type="button"
+          onClick={() => onForgotPassword?.()}
+          className="text-primary font-medium hover:underline"
+        >
+          Olvidé mi contraseña
+        </button>
+      </div>
+
+      <div className="text-center text-sm text-muted-foreground">
         ¿No tienes cuenta?{" "}
         <button
           type="button"
@@ -209,6 +221,222 @@ export function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
           className="text-primary font-medium hover:underline"
         >
           Regístrate aquí
+        </button>
+      </div>
+    </form>
+  );
+}
+
+interface ForgotPasswordFormProps {
+  onSwitchToLogin?: () => void;
+}
+
+function generateSecurePassword() {
+  const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+  const lower = "abcdefghijklmnopqrstuvwxyz";
+  const digits = "0123456789";
+  // Debe mantenerse alineado con la política del backend:
+  // al menos un carácter especial de !@#$%^&*
+  const symbols = "!@#$%^&*";
+  const all = upper + lower + digits + symbols;
+  const pwd = [
+    upper[Math.floor(Math.random() * upper.length)],
+    lower[Math.floor(Math.random() * lower.length)],
+    digits[Math.floor(Math.random() * digits.length)],
+    symbols[Math.floor(Math.random() * symbols.length)],
+  ];
+  for (let i = pwd.length; i < 16; i++) pwd.push(all[Math.floor(Math.random() * all.length)]);
+  return pwd.sort(() => Math.random() - 0.5).join("");
+}
+
+/**
+ * Formulario de recuperación de contraseña basado únicamente en email.
+ * Reutiliza la misma lógica de sugerencia de contraseña segura disponible
+ * durante el registro para mantener coherencia en la UX.
+ */
+export function ForgotPasswordForm({ onSwitchToLogin }: ForgotPasswordFormProps) {
+  const [form, setForm] = useState({
+    email: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showPwd, setShowPwd] = useState(false);
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+
+  function handleChange(field: string, value: string) {
+    setForm((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => ({ ...prev, [field]: "" }));
+    }
+  }
+
+  function validate() {
+    const nextErrors: Record<string, string> = {};
+
+    if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      nextErrors.email = "Ingresa un email válido";
+    }
+    if (form.newPassword.length < 12) {
+      nextErrors.newPassword = "La nueva contraseña debe tener mínimo 12 caracteres";
+    }
+    if (form.newPassword !== form.confirmPassword) {
+      nextErrors.confirmPassword = "Las contraseñas no coinciden";
+    }
+
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
+  }
+
+  async function handleSubmit(ev: FormEvent) {
+    ev.preventDefault();
+
+    if (!validate()) {
+      Swal.fire({
+        icon: "warning",
+        title: "Datos incompletos",
+        text: "Revisa los campos obligatorios antes de continuar.",
+        timer: 2500,
+        showConfirmButton: false,
+      });
+      return;
+    }
+
+    setSubmitting(true);
+
+    try {
+      await apiService.auth.recoverPassword({
+        email: form.email.trim().toLowerCase(),
+        newPassword: form.newPassword,
+      });
+
+      setSubmitting(false);
+
+      await Swal.fire({
+        icon: "success",
+        title: "Contraseña actualizada",
+        text: "Tu contraseña fue restablecida correctamente. Ahora puedes iniciar sesión.",
+        timer: 2500,
+        showConfirmButton: false,
+      });
+
+      onSwitchToLogin?.();
+    } catch (error: any) {
+      setSubmitting(false);
+      Swal.fire({
+        icon: "error",
+        title: "No fue posible restablecer la contraseña",
+        text: error.message || "Verifica los datos suministrados e inténtalo de nuevo.",
+        timer: 3200,
+        showConfirmButton: false,
+      });
+    }
+  }
+
+  const inputClass = (field: string) =>
+    `w-full rounded-lg border ${errors[field] ? "border-destructive" : "border-input"} bg-background px-3 py-2.5 text-sm focus:ring-2 focus:ring-ring outline-none`;
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 text-left">
+      <div>
+        <label className="block text-sm font-medium text-foreground mb-1.5">Email</label>
+        <Input
+          type="email"
+          placeholder="correo@ejemplo.com"
+          value={form.email}
+          onChange={(e) => handleChange("email", e.target.value)}
+          className={inputClass("email")}
+        />
+        {errors.email && <p className="text-xs text-destructive mt-1">{errors.email}</p>}
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <div className="flex items-center justify-between mb-1.5 h-5">
+            <label className="block text-sm font-medium text-foreground">
+              Nueva Contraseña
+            </label>
+            <button
+              type="button"
+              onClick={() => {
+                const password = generateSecurePassword();
+                handleChange("newPassword", password);
+                handleChange("confirmPassword", password);
+                setShowPwd(true);
+                setShowConfirmPwd(true);
+              }}
+              className="inline-flex items-center gap-1 text-[10px] text-primary hover:underline font-medium"
+            >
+              <RefreshCw className="h-3 w-3" /> Sugerir segura
+            </button>
+          </div>
+          <div className="relative">
+            <Input
+              type={showPwd ? "text" : "password"}
+              placeholder="Mínimo 12 caracteres"
+              value={form.newPassword}
+              onChange={(e) => handleChange("newPassword", e.target.value)}
+              className={`${inputClass("newPassword")} pr-10`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPwd(!showPwd)}
+              className="absolute right-0 top-0 h-full px-3 flex items-center justify-center text-muted-foreground hover:text-foreground"
+            >
+              {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          {errors.newPassword && (
+            <p className="text-xs text-destructive mt-1">{errors.newPassword}</p>
+          )}
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-foreground mb-1.5">
+            Confirmar Contraseña
+          </label>
+          <div className="relative">
+            <Input
+              type={showConfirmPwd ? "text" : "password"}
+              placeholder="Repite tu nueva contraseña"
+              value={form.confirmPassword}
+              onChange={(e) => handleChange("confirmPassword", e.target.value)}
+              className={`${inputClass("confirmPassword")} pr-10`}
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPwd(!showConfirmPwd)}
+              className="absolute right-0 top-0 h-full px-3 flex items-center justify-center text-muted-foreground hover:text-foreground"
+            >
+              {showConfirmPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+          {errors.confirmPassword && (
+            <p className="text-xs text-destructive mt-1">{errors.confirmPassword}</p>
+          )}
+        </div>
+      </div>
+
+      {form.newPassword ? (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
+          La contraseña sugerida o ingresada debe mantener mínimo 12 caracteres y combinar mayúsculas,
+          minúsculas, números y símbolos.
+        </div>
+      ) : null}
+
+      <Button type="submit" variant="default" size="lg" className="w-full text-base py-6" disabled={submitting}>
+        {submitting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
+        Restablecer Contraseña
+      </Button>
+
+      <div className="text-center text-sm text-muted-foreground">
+        <button
+          type="button"
+          onClick={() => onSwitchToLogin?.()}
+          className="text-primary font-medium hover:underline"
+        >
+          Volver al inicio de sesión
         </button>
       </div>
     </form>
@@ -304,25 +532,6 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
   function handleChange(field: string, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: "" }));
-  }
-
-  /**
-   * Genera una contraseña segura aleatoria (mínimo 16 caracteres, mezcla de tipos).
-   */
-  function generateSecurePassword() {
-    const upper = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-    const lower = "abcdefghijklmnopqrstuvwxyz";
-    const digits = "0123456789";
-    const symbols = "!@#$%&*_-+=";
-    const all = upper + lower + digits + symbols;
-    const pwd = [
-      upper[Math.floor(Math.random() * upper.length)],
-      lower[Math.floor(Math.random() * lower.length)],
-      digits[Math.floor(Math.random() * digits.length)],
-      symbols[Math.floor(Math.random() * symbols.length)],
-    ];
-    for (let i = pwd.length; i < 16; i++) pwd.push(all[Math.floor(Math.random() * all.length)]);
-    return pwd.sort(() => Math.random() - 0.5).join("");
   }
 
   /**

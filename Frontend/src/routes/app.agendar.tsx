@@ -39,6 +39,7 @@ import { getCurrentUser, type Cita, type Doctor } from "@/lib/auth";
 import { apiService } from "@/lib/apiService";
 import {
   canScheduleOnDate,
+  getUtcDateString,
   validateAppointmentSelection,
   WORKING_HOURS,
 } from "@/lib/appointmentRules";
@@ -146,7 +147,7 @@ export default function AgendarCitaPage() {
     async function fetchAvailability() {
       if (doctorId && date) {
         try {
-          const fechaFormat = format(date, "yyyy-MM-dd");
+          const fechaFormat = getUtcDateString(date);
           const response = await apiService.appointments.getDoctorAvailability(doctorId, fechaFormat);
           setBookedHours(response.data || []);
         } catch (error) {
@@ -227,7 +228,7 @@ export default function AgendarCitaPage() {
     const doctor = doctores.find((d) => d.id === doctorId);
     if (!doctor) return;
 
-    const fechaFormat = format(date, "yyyy-MM-dd");
+    const fechaFormat = getUtcDateString(date);
 
     /**
      * Creación del objeto Cita con datos del paciente, médico y detalles de la reserva.

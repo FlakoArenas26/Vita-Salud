@@ -4,7 +4,9 @@ import { loginLimiter } from '../middlewares/rateLimiter.middleware';
 import { validate } from '../middlewares/validate.middleware';
 import { verifyToken } from '../middlewares/auth.middleware';
 import {
+  changePasswordValidator,
   loginValidator,
+  recoverPasswordValidator,
   registerPatientValidator,
   registerDoctorValidator,
 } from '../validators/auth.validator';
@@ -25,5 +27,22 @@ router.post('/register/doctor', registerDoctorValidator, validate, authControlle
 
 // POST /api/auth/refresh
 router.post('/refresh', authController.refresh.bind(authController));
+
+// POST /api/auth/change-password
+router.post(
+  '/change-password',
+  verifyToken,
+  changePasswordValidator,
+  validate,
+  authController.changePassword.bind(authController)
+);
+
+// POST /api/auth/recover-password
+router.post(
+  '/recover-password',
+  recoverPasswordValidator,
+  validate,
+  authController.recoverPassword.bind(authController)
+);
 
 export default router;

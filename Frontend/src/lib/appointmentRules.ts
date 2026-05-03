@@ -1,8 +1,11 @@
 /**
  * Reglas compartidas de agenda para la interfaz del paciente.
- * Estas validaciones usan la hora de Colombia (America/Bogota) y no la hora
- * local del navegador, para mantener consistencia con el backend y la base de datos.
+ * La aplicación maneja fechas en UTC, pero la política operativa se evalúa
+ * explícitamente contra la zona horaria de Colombia (America/Bogota).
  */
+
+const COLOMBIA_TIME_ZONE = "America/Bogota";
+const COLOMBIA_OFFSET = "-05:00";
 
 export const WORKING_DAYS = [1, 2, 3, 4, 5, 6];
 export const WORKING_HOURS = [
@@ -24,75 +27,82 @@ export const WORKING_HOURS = [
   "17:00",
 ];
 
-function getColombiaDateParts(date: Date) {
-  const formatter = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'America/Bogota',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
+function pad(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+/**
+ * Cuando el calendario trabaja con UTC, usamos los getters UTC para conservar
+ * el día exacto que seleccionó el usuario y no desplazarlo al convertir zonas.
+ */
+export function getUtcDateString(date: Date): string {
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+}
+
+function getColombiaNowContext(now = new Date()) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: COLOMBIA_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
     hour12: false,
   });
 
   const parts = Object.fromEntries(
-    formatter.formatToParts(date).map((part) => [part.type, part.value]),
+    formatter.formatToParts(now).map((part) => [part.type, part.value]),
   ) as Record<string, string>;
 
   return {
-    year: Number(parts.year),
-    month: Number(parts.month) - 1,
-    day: Number(parts.day),
+    today: `${parts.year}-${parts.month}-${parts.day}`,
     hour: Number(parts.hour),
     minute: Number(parts.minute),
   };
 }
 
-function normalizeDate(date: Date): Date {
-  const { year, month, day } = getColombiaDateParts(date);
-  return new Date(year, month, day);
+function resolveDateString(date: Date | string): string {
+  return typeof date === "string" ? date : getUtcDateString(date);
 }
 
-function buildColombiaDateTime(date: Date, hour: string): Date {
-  const { year, month, day } = getColombiaDateParts(date);
-  const formattedDate = `${String(year).padStart(4, '0')}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-  return new Date(`${formattedDate}T${hour}:00-05:00`);
+function getWeekdayInColombia(date: Date | string): number {
+  const dateString = resolveDateString(date);
+  return new Date(`${dateString}T12:00:00${COLOMBIA_OFFSET}`).getUTCDay();
 }
 
-export function isWorkingDay(date: Date): boolean {
-  return WORKING_DAYS.includes(normalizeDate(date).getDay());
+function buildColombiaDateTime(date: Date | string, hour: string): Date {
+  return new Date(`${resolveDateString(date)}T${hour}:00${COLOMBIA_OFFSET}`);
 }
 
-export function canScheduleOnDate(date: Date, now = new Date()): boolean {
-  const selectedDay = normalizeDate(date);
-  const today = normalizeDate(now);
+export function canScheduleOnDate(date: Date | string, now = new Date()): boolean {
+  const selectedDate = resolveDateString(date);
+  const { today, hour, minute } = getColombiaNowContext(now);
 
-  if (selectedDay < today) {
+  if (selectedDate < today) {
     return false;
   }
 
-  if (!isWorkingDay(date)) {
+  if (!WORKING_DAYS.includes(getWeekdayInColombia(date))) {
     return false;
   }
 
-  if (selectedDay.getTime() === today.getTime()) {
-    const colombiaNow = getColombiaDateParts(now);
-    const currentMinutes = colombiaNow.hour * 60 + colombiaNow.minute;
-    const lastPossibleRequest = 16 * 60;
-    const isWithinOperationalWindow = currentMinutes >= 7 * 60 && currentMinutes <= lastPossibleRequest;
-
-    return isWithinOperationalWindow;
+  if (selectedDate === today) {
+    const currentMinutes = hour * 60 + minute;
+    return currentMinutes >= 7 * 60 && currentMinutes <= 16 * 60;
   }
 
   return true;
 }
 
 export function validateAppointmentSelection(
-  date: Date,
+  date: Date | string,
   hour: string,
   now = new Date(),
 ): string | null {
-  if (!isWorkingDay(date)) {
+  const selectedDate = resolveDateString(date);
+  const { today, hour: currentHour, minute: currentMinute } = getColombiaNowContext(now);
+
+  if (!WORKING_DAYS.includes(getWeekdayInColombia(date))) {
     return "Solo puedes agendar o reprogramar citas de lunes a sábado.";
   }
 
@@ -100,29 +110,29 @@ export function validateAppointmentSelection(
     return "La hora seleccionada está fuera de los bloques habilitados por la app.";
   }
 
-  if (!canScheduleOnDate(date, now)) {
-    const selectedDay = normalizeDate(date);
-    const today = normalizeDate(now);
-
-    if (selectedDay < today) {
-      return "No puedes agendar o reprogramar citas en fechas anteriores.";
-    }
-
-    if (selectedDay.getTime() === today.getTime()) {
-      return "Las citas del mismo día solo pueden solicitarse dentro del horario laboral de 07:00 a 17:00.";
-    }
+  if (selectedDate < today) {
+    return "No puedes agendar o reprogramar citas en fechas anteriores.";
   }
 
-  const selectedDateTime = buildColombiaDateTime(date, hour);
-  const colombiaNow = getColombiaDateParts(now);
-  const currentTime = new Date(
-    `${String(colombiaNow.year).padStart(4, '0')}-${String(colombiaNow.month + 1).padStart(2, '0')}-${String(colombiaNow.day).padStart(2, '0')}T${String(colombiaNow.hour).padStart(2, '0')}:${String(colombiaNow.minute).padStart(2, '0')}:00-05:00`,
-  );
-  const minTime = new Date(currentTime.getTime() + 60 * 60 * 1000);
+  if (selectedDate === today) {
+    const currentMinutes = currentHour * 60 + currentMinute;
 
-  if (normalizeDate(date).getTime() === normalizeDate(now).getTime() && selectedDateTime <= minTime) {
-    return "Debes agendar o reprogramar tu cita con al menos 1 hora de anticipación.";
+    if (currentMinutes < 7 * 60 || currentMinutes > 16 * 60) {
+      return "Las citas del mismo día solo pueden solicitarse dentro del horario laboral de 07:00 a 17:00.";
+    }
+
+    const selectedDateTime = buildColombiaDateTime(date, hour);
+    const currentColombiaDateTime = new Date(`${today}T${pad(currentHour)}:${pad(currentMinute)}:00${COLOMBIA_OFFSET}`);
+    const minTime = new Date(currentColombiaDateTime.getTime() + 60 * 60 * 1000);
+
+    if (selectedDateTime <= minTime) {
+      return "Debes agendar o reprogramar tu cita con al menos 1 hora de anticipación.";
+    }
   }
 
   return null;
+}
+
+export function getCurrentColombiaDateString(now = new Date()): string {
+  return getColombiaNowContext(now).today;
 }
