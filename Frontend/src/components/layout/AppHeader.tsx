@@ -1,6 +1,7 @@
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { useState } from "react";
-import { getCurrentUser, logout } from "@/lib/mockData";
+import { getCurrentUser } from "@/lib/auth";
+import { apiService } from "@/lib/apiService";
 import { Button } from "@/components/ui/button";
 import { Menu, X, Calendar, Home, Settings, LogOut, User } from "lucide-react";
 import facebookIcon from "@/assets/facebook-svgrepo-com.svg";
@@ -22,27 +23,33 @@ export function AppHeader() {
   /**
    * Finaliza la sesión del usuario y lo redirige al portal público.
    */
-  function handleLogout() {
-    logout();
+  async function handleLogout() {
+    try {
+      await apiService.auth.logout();
+    } catch (error) {
+      sessionStorage.removeItem("vitasalud_token");
+    }
     navigate("/");
   }
 
   /** Definición de ítems de navegación interna filtrados por rol */
-  const navItems = user?.rol === "admin"
-    ? [
-      { to: "/app" as const, label: "Registro Médicos", icon: User },
-      { to: "/app/configuracion" as const, label: "Configuración", icon: Settings },
-    ]
-    : user?.rol === "medico"
+  const userRole = user?.rol?.toLowerCase();
+  const navItems =
+    userRole === "admin"
       ? [
-        { to: "/app" as const, label: "Citas", icon: Home },
-        { to: "/app/configuracion" as const, label: "Configuración", icon: Settings },
-      ]
-      : [
-        { to: "/app" as const, label: "Mis Citas", icon: Home },
-        { to: "/app/agendar" as const, label: "Agendar Cita", icon: Calendar },
-        { to: "/app/configuracion" as const, label: "Configuración", icon: Settings },
-      ];
+          { to: "/app" as const, label: "Registro Médicos", icon: User },
+          { to: "/app/configuracion" as const, label: "Configuración", icon: Settings },
+        ]
+      : userRole === "medico"
+        ? [
+            { to: "/app" as const, label: "Citas", icon: Home },
+            { to: "/app/configuracion" as const, label: "Configuración", icon: Settings },
+          ]
+        : [
+            { to: "/app" as const, label: "Mis Citas", icon: Home },
+            { to: "/app/agendar" as const, label: "Agendar Cita", icon: Calendar },
+            { to: "/app/configuracion" as const, label: "Configuración", icon: Settings },
+          ];
 
   /** Evalúa si una ruta específica es la actual para resaltar el enlace en la UI */
   const isActive = (path: string) => location.pathname === path;
@@ -54,7 +61,7 @@ export function AppHeader() {
         <Link
           to="/app"
           className="flex items-center gap-2 group"
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
         >
           <div className="w-9 h-9 rounded-lg bg-primary flex items-center justify-center transition-transform group-hover:scale-110">
             <span className="text-primary-foreground font-bold text-base">VS</span>
@@ -70,10 +77,11 @@ export function AppHeader() {
             <Link
               key={item.to}
               to={item.to}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isActive(item.to)
-                ? "bg-primary text-primary-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-                }`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                isActive(item.to)
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              }`}
             >
               <item.icon className="h-4 w-4" />
               {item.label}
@@ -87,12 +95,17 @@ export function AppHeader() {
             <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
               <User className="h-3 w-3 text-primary-foreground" />
             </div>
-            <span className="text-xs font-bold text-foreground max-w-[120px] truncate">
-              {user?.nombre?.split(" ").slice(0, 1).join(" ")}
+            <span className="text-xs font-bold text-foreground max-w-[200px] truncate">
+              {user?.nombre}
             </span>
           </div>
           <div className="w-px h-6 bg-border mx-1"></div>
-          <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-destructive transition-colors px-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleLogout}
+            className="text-muted-foreground hover:text-destructive transition-colors px-2"
+          >
             <LogOut className="h-4 w-4 mr-1" /> Salir
           </Button>
         </div>
@@ -111,7 +124,9 @@ export function AppHeader() {
               <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center">
                 <User className="h-4 w-4 text-accent-foreground" />
               </div>
-              <span className="text-sm font-medium text-foreground">{user.nombre.split(" ").slice(0, 2).join(" ")}</span>
+              <span className="text-sm font-medium text-foreground truncate max-w-[200px]">
+                {user.nombre}
+              </span>
             </div>
           )}
           {navItems.map((item) => (
@@ -119,17 +134,21 @@ export function AppHeader() {
               key={item.to}
               to={item.to}
               onClick={() => setMenuOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive(item.to)
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-accent"
-                }`}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                isActive(item.to)
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-accent"
+              }`}
             >
               <item.icon className="h-4 w-4" />
               {item.label}
             </Link>
           ))}
           <button
-            onClick={() => { setMenuOpen(false); handleLogout(); }}
+            onClick={() => {
+              setMenuOpen(false);
+              handleLogout();
+            }}
             className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-destructive hover:bg-destructive/10 w-full"
           >
             <LogOut className="h-4 w-4" />

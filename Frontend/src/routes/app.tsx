@@ -1,6 +1,6 @@
 import { Outlet, useNavigate } from "react-router-dom";
 import { useEffect } from "react";
-import { getCurrentUser } from "@/lib/mockData";
+import { getCurrentUser } from "@/lib/auth";
 import { AppHeader } from "@/components/layout/AppHeader";
 import { ScrollToTop } from "@/components/ui/ScrollToTop";
 

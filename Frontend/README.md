@@ -1,99 +1,191 @@
-# VitaSalud - Plataforma de Gestión Médica Integral
+# Frontend VitaSalud
 
-## 📋 Descripción del Proyecto
-VitaSalud es una aplicación web moderna (SPA) diseñada para la gestión eficiente de centros médicos, permitiendo la interacción fluida entre Administradores, Médicos y Pacientes. Este proyecto ha sido desarrollado como parte del programa de **Ingeniería de Sistemas (10mo Semestre)** para la asignatura de Desarrollo Web.
+## Descripción
+Este módulo contiene la capa de presentación de VitaSalud. Está construido como una **SPA en React + TypeScript** y se encarga de renderizar la experiencia de usuario para pacientes, médicos y administradores, consumiendo la API REST del backend.
 
-La plataforma se destaca por su enfoque en la **experiencia de usuario (UX)**, con una interfaz premium, animaciones fluidas y una arquitectura de datos robusta simulada en el lado del cliente.
+Su responsabilidad principal es la **View** dentro de la arquitectura general del proyecto, junto con la orquestación del estado visual, formularios, navegación y alertas del sistema.
 
----
+## Objetivos del frontend
 
-## 🏗️ Estructura del Proyecto
+- ofrecer una experiencia moderna, clara y responsive
+- permitir navegación por roles
+- consumir la API centralizada del backend
+- mostrar citas, médicos, perfiles y estados del sistema
+- reflejar cambios importantes mediante notificaciones visuales
 
-La organización del código sigue los estándares modernos de desarrollo con React:
+## Stack del frontend
+
+- React 19
+- TypeScript
+- Vite 7
+- Tailwind CSS 4
+- Framer Motion
+- Radix UI
+- Lucide React
+- SweetAlert2
+
+## Estructura principal
 
 ```text
 Frontend/
-├── public/              # Activos estáticos y manifiesto PWA
+├── public/                 # PWA, favicon y activos estáticos
 ├── src/
-│   ├── assets/          # Imágenes y recursos multimedia
-│   ├── components/      # Componentes reutilizables (UI, Auth, Layout)
-│   │   ├── auth/        # Lógica de formularios de autenticación
-│   │   ├── ui/          # Componentes base (Botones, Inputs, etc.)
-│   │   └── layout/      # Estructura visual (Header, Footer)
-│   ├── hooks/           # Hooks personalizados de React
-│   ├── lib/             # Utilidades y Capa de Datos (Mock DB)
-│   ├── routes/          # Páginas y vistas principales de la aplicación
-│   ├── App.tsx          # Enrutador y configuración global
-│   ├── main.tsx         # Punto de entrada de la aplicación
-│   └── styles.css       # Estilos globales y tokens de diseño
-├── package.json         # Dependencias y scripts
-└── vite.config.ts       # Configuración de Vite y PWA
+│   ├── assets/             # Recursos visuales
+│   ├── components/
+│   │   ├── auth/           # Formularios y diálogos de autenticación
+│   │   ├── layout/         # Header, footer y composición visual
+│   │   └── ui/             # Componentes reutilizables base
+│   ├── hooks/              # Hooks personalizados
+│   ├── lib/                # Tipos, utilidades, capa de consumo API
+│   ├── routes/             # Pantallas principales por flujo
+│   ├── App.tsx             # Definición de rutas
+│   ├── main.tsx            # Punto de entrada
+│   └── styles.css          # Estilos globales
+├── package.json
+└── vite.config.ts
 ```
 
----
+## Organización funcional
 
-## 🚀 Tecnologías Utilizadas
+### `src/routes/`
+Define las páginas principales:
 
-- **Core**: [React 19](https://react.dev/) - La versión más reciente para una gestión de estado y renderizado óptimo.
-- **Build Tool**: [Vite 7](https://vitejs.dev/) - Entorno de desarrollo ultra rápido.
-- **Lenguaje**: [TypeScript](https://www.typescriptlang.org/) - Tipado estático para un código más seguro y mantenible.
-- **Estilos**: 
-  - **Tailwind CSS 4**: Motor de estilos utilitarios de última generación.
-  - **Vanilla CSS**: Para micro-interacciones y personalización avanzada.
-  - **Framer Motion**: Biblioteca de animaciones de alto rendimiento.
-- **Iconografía**: [Lucide React](https://lucide.dev/) - Set de iconos vectoriales consistentes.
-- **UI Components**: Basados en **Radix UI** para accesibilidad (WAI-ARIA).
-- **Alertas**: [SweetAlert2](https://sweetalert2.github.io/) - Notificaciones elegantes y funcionales.
+- landing pública
+- login y registro
+- dashboard del paciente
+- dashboard del médico
+- dashboard del administrador
+- agendamiento
+- detalle de cita
+- configuración
 
----
+### `src/components/`
+Contiene bloques reutilizables y mantiene separada la UI de la lógica de páginas.
 
-## 💾 Estrategia de Persistencia de Datos
+### `src/lib/apiService.ts`
+Actúa como **capa de servicios del frontend** y centraliza:
 
-Para cumplir con los requisitos académicos de simular un entorno completo sin necesidad de un backend complejo, se implementó una estrategia híbrida de almacenamiento en el navegador:
+- llamadas HTTP
+- inyección del token Bearer
+- manejo estándar de errores
+- normalización de respuestas del backend
 
-1. **LocalStorage (Base de Datos Mock)**: 
-   - Se utiliza como el "servidor" central de la aplicación.
-   - Permite que los datos (Médicos registrados, Citas agendadas) persistan incluso al cerrar el navegador.
-   - Facilita la **consistencia entre pestañas**: un médico creado por el Admin en la Pestaña A es visible inmediatamente para el Login en la Pestaña B.
+Esto evita tener `fetch` dispersos por toda la aplicación y mejora mantenibilidad.
 
-2. **SessionStorage (Gestión de Sesiones)**:
-   - Se utiliza exclusivamente para el `CURRENT_USER`.
-   - **Ventaja Crítica**: Permite abrir múltiples pestañas del mismo navegador y tener sesiones independientes (un Admin en una, un Médico en otra y un Paciente en otra), facilitando las pruebas de flujo cruzado.
+### `src/lib/auth.ts`
+Define tipos de usuario/cita, datos compartidos y utilidades como la generación de recomendaciones clínicas por especialidad.
 
----
+## Funcionalidades destacadas del frontend
 
-## 📱 PWA & Diseño Responsive
+- autenticación por roles con persistencia de sesión
+- dashboards diferenciados por perfil
+- agendamiento con consulta dinámica de disponibilidad
+- reprogramación y cancelación de citas
+- generación asistida de recomendaciones para el médico
+- alertas para citas agendadas, canceladas, reprogramadas y recomendaciones disponibles
+- notificaciones de escritorio y SweetAlert para pacientes cuando el médico carga recomendaciones o cancela una cita
+- bloqueo visual de fechas y horas fuera del calendario laboral del sistema
+- validación de fechas/hora en Colombia (America/Bogota) para agendamiento y reprogramación
+- diseño responsive y navegación fluida
 
-- **Progressive Web App (PWA)**: La aplicación está configurada para ser instalable en dispositivos móviles y escritorio, con soporte para carga rápida y manifiesto de aplicación web.
-- **Mobile-First**: El diseño ha sido concebido desde dispositivos móviles hacia arriba, garantizando que todas las funcionalidades (como el Dashboard Médico) sean 100% operativas en pantallas táctiles.
-- **Responsive Design**: Uso intensivo de Flexbox y CSS Grid para adaptabilidad total.
+## Manejo de sesión y datos
 
----
+### SessionStorage
+Se usa para mantener:
 
-## 🛠️ Instalación y Ejecución
+- usuario autenticado
+- token JWT
+- refresh token
 
-1. Clonar el repositorio.
-2. Instalar dependencias:
-   ```bash
-   npm install
-   ```
-3. Ejecutar en modo desarrollo:
-   ```bash
-   npm run dev
-   ```
-4. Construir para producción:
-   ```bash
-   npm run build
-   ```
+Esto permite sesiones activas por pestaña y facilita pruebas de múltiples roles.
 
----
+## Cambios Recientes
 
-## 👨‍💻 Autores
-- **Rafael José Arenas Restrepo**
-- **Valeria Martínez Castañeda**
-- **Miguel Ángel Herrera Oyola**
+### Mejoras en Notificaciones y Alertas (2026-05-02)
+- **Sincronización de notificaciones para pacientes**: Agregado triggers explícitos en `syncPatientNotifications` para mostrar SweetAlert y notificaciones de escritorio cuando el médico carga recomendaciones o cancela una cita. Reducido intervalo de polling de 30s a 10s para menor latencia.
+- **Alertas en dashboard del médico**: Extendido `syncDoctorNotifications` para incluir notificaciones cuando un paciente agenda una nueva cita (estado "agendada"). Agregado refresh automático al ganar foco en la ventana y listener de eventos de storage para sincronización entre pestañas.
+- **Generación de recomendaciones IA**: Modificado `generateAgentRecommendation` en `src/lib/auth.ts` para seleccionar entre 3 y 5 recomendaciones aleatorias por paciente de un pool ampliado por especialidad (manejo, cuidados, alertas, seguimiento y genéricas). Eliminado servidor MCP no utilizado.
+- **Limpieza de código**: Removida carpeta `mcp-medical-assistant` ya que las recomendaciones se generan localmente y no se utiliza el servidor MCP.
 
----
-**Asignatura:** Desarrollo Web
-**Programa:** Ingeniería de Sistemas - 10mo Semestre  
-**Institución:** Fundación Universitaria del Área Andina  
+### Validaciones Realizadas
+- Build exitoso en Frontend con `npm run build`.
+- Build exitoso en Backend con `npm run build`.
+- Funcionalidad probada en dashboards de paciente y médico para confirmación de alertas.
+
+### Consumo de API
+El frontend ya no opera con una base mock central como versión final del proyecto, sino que consume la API del backend mediante `apiService`.
+
+## PWA y experiencia responsive
+
+- manifiesto web incluido
+- soporte de instalación en navegador compatible
+- diseño pensado para escritorio y móvil
+- uso de Flexbox y Grid
+- alertas compatibles con flujos de dashboard y formularios
+
+## Instalación
+
+```bash
+npm install
+```
+
+## Ejecución en desarrollo
+
+```bash
+npm run dev
+```
+
+## Build
+
+```bash
+npm run build
+```
+
+## Variables relevantes
+
+- `VITE_API_URL`: URL base del backend
+
+Ejemplo:
+
+```env
+VITE_API_URL=http://localhost:3000/api
+```
+
+## Rutas y archivos clave
+
+- `src/App.tsx`: rutas de la aplicación
+- `src/routes/app.index.tsx`: dashboard principal por roles
+- `src/routes/app.agendar.tsx`: flujo de agendamiento
+- `src/components/auth/AuthForms.tsx`: formularios principales
+- `src/lib/apiService.ts`: cliente HTTP centralizado
+- `src/lib/auth.ts`: tipos y utilidades de dominio frontend
+- `src/lib/appointmentRules.ts`: reglas compartidas de agenda laboral
+
+## Rol del frontend dentro de la arquitectura MVC
+
+Aunque el MVC se aplica principalmente en el backend, el frontend cumple el papel de **View desacoplada**, ya que:
+
+- representa los datos al usuario
+- captura acciones e intención de uso
+- consume la capa Controller del backend vía HTTP
+- reacciona a los resultados generados por la lógica de negocio
+
+## Recomendaciones para demo
+
+1. iniciar sesión con paciente
+2. agendar una cita
+3. reprogramarla
+4. abrir sesión de médico
+5. mostrar alertas y atención
+6. regresar al paciente para ver recomendaciones
+
+## Scripts disponibles
+
+| Script | Descripción |
+|---|---|
+| `npm run dev` | servidor de desarrollo |
+| `npm run build` | build de producción |
+| `npm run build:dev` | build modo development |
+| `npm run preview` | vista previa del build |
+| `npm run lint` | análisis estático |
+| `npm run format` | formateo del código |

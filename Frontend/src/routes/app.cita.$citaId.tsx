@@ -1,7 +1,18 @@
 import { Link, useParams } from "react-router-dom";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { ArrowLeft, User, Calendar, Clock, FileText, CheckCircle2, Stethoscope } from "lucide-react";
-import { getCitaById, getDoctorById, getCurrentUser } from "@/lib/mockData";
+import {
+  ArrowLeft,
+  User,
+  Calendar,
+  Clock,
+  FileText,
+  CheckCircle2,
+  Stethoscope,
+  Loader2,
+} from "lucide-react";
+import { type Cita, type Doctor } from "@/lib/auth";
+import { apiService } from "@/lib/apiService";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -10,8 +21,31 @@ import { Button } from "@/components/ui/button";
  */
 export default function DetalleCitaPage() {
   const { citaId } = useParams();
-  const cita = getCitaById(citaId ?? "");
-  const user = getCurrentUser();
+  const [cita, setCita] = useState<Cita | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadCita() {
+      try {
+        const response = await apiService.appointments.getById(citaId ?? "");
+        setCita(response.data);
+      } catch (error) {
+        console.error("Error loading appointment:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    if (citaId) loadCita();
+  }, [citaId]);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <p className="text-muted-foreground animate-pulse">Cargando reporte clínico...</p>
+      </div>
+    );
+  }
 
   // Control de errores: Cita no encontrada
   if (!cita) {
@@ -25,27 +59,25 @@ export default function DetalleCitaPage() {
     );
   }
 
-  /**
-   * Recuperación robusta de datos para citas antiguas o incompletas.
-   * Prioriza los datos de la cita y usa los del usuario actual o el médico si faltan campos.
-   */
-  const doctorInfo = getDoctorById(cita.doctorId);
-  const pacienteNombre = cita.pacienteNombre || user?.nombre || "Paciente";
-  const pacienteTipoDoc = cita.pacienteTipoDoc || user?.tipoDocumento || "CC";
-  const pacienteId = cita.pacienteIdentificacion || user?.identificacion || "No registrado";
-  
-  const doctorDoc = cita.doctorIdentificacion || doctorInfo?.identificacion || "1.000.000.000";
-  const doctorTP = cita.doctorTarjetaProfesional || doctorInfo?.tarjetaProfesional || "REG-M-0000";
+  const pacienteNombre = cita.pacienteNombre || "Paciente";
+  const pacienteTipoDoc = cita.pacienteTipoDoc || "CC";
+  const pacienteId = cita.pacienteIdentificacion || "No registrado";
+
+  const doctorDoc = cita.doctorIdentificacion || "1.000.000.000";
+  const doctorTP = cita.doctorTarjetaProfesional || "REG-M-0000";
 
   /**
    * Lógica de limpieza de recomendaciones médicas.
    * Filtra metadatos innecesarios o formatos antiguos para presentar solo el contenido clínico relevante.
    */
   let cleanRecomendaciones = cita.recomendaciones || "";
-  if (cleanRecomendaciones.toUpperCase().includes("AGENTE MCP") || cleanRecomendaciones.includes("protocolo automatizado")) {
+  if (
+    cleanRecomendaciones.toUpperCase().includes("AGENTE MCP") ||
+    cleanRecomendaciones.includes("protocolo automatizado")
+  ) {
     const lines = cleanRecomendaciones.split("\n");
     // Extrae únicamente las líneas numeradas para el plan de manejo
-    const numberedLines = lines.filter(l => /^\d+\./.test(l.trim()));
+    const numberedLines = lines.filter((l) => /^\d+\./.test(l.trim()));
     if (numberedLines.length > 0) {
       cleanRecomendaciones = numberedLines.join("\n");
     } else {
@@ -101,30 +133,44 @@ export default function DetalleCitaPage() {
             <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-background px-4 py-1 border border-border rounded-full text-[10px] font-bold uppercase tracking-widest text-muted-foreground z-10">
               Documento Sanitario Oficial
             </div>
-            
+
             <div className="bg-white border-2 border-primary/20 rounded-2xl p-6 sm:p-10 shadow-xl relative overflow-hidden text-slate-800">
               {/* Encabezado de la Institución (Branding) */}
               <div className="flex justify-between items-start mb-8 border-b-4 border-primary pb-6">
                 <div className="space-y-1">
-                  <h2 className="text-3xl font-black text-primary font-heading tracking-tighter italic leading-none">VitaSalud</h2>
-                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">Tu Salud en Conexión Digital</p>
-                  <p className="text-[10px] text-slate-400">NIT: 900.234.123-1 | Registro Sanitario: VTS-2026</p>
+                  <h2 className="text-3xl font-black text-primary font-heading tracking-tighter italic leading-none">
+                    VitaSalud
+                  </h2>
+                  <p className="text-[11px] font-bold text-slate-500 uppercase tracking-tight">
+                    Tu Salud en Conexión Digital
+                  </p>
+                  <p className="text-[10px] text-slate-400">
+                    NIT: 900.234.123-1 | Registro Sanitario: VTS-2026
+                  </p>
                 </div>
                 <div className="text-right space-y-1">
                   <p className="text-sm font-black text-primary uppercase">Fórmula Médica</p>
-                  <p className="text-[10px] text-slate-500 font-mono">Folio: {cita.id.toUpperCase().slice(0, 12)}</p>
+                  <p className="text-[10px] text-slate-500 font-mono">
+                    Folio: {cita.id.toUpperCase().slice(0, 12)}
+                  </p>
                 </div>
               </div>
 
               {/* Información Detallada del Paciente */}
               <div className="grid grid-cols-2 gap-6 mb-8 bg-slate-50 p-5 rounded-xl border border-slate-100">
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Identificación del Paciente</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                    Identificación del Paciente
+                  </label>
                   <p className="text-sm font-bold uppercase">{pacienteNombre}</p>
-                  <p className="text-[10px] font-medium text-slate-600">{pacienteTipoDoc}: {pacienteId}</p>
+                  <p className="text-[10px] font-medium text-slate-600">
+                    {pacienteTipoDoc}: {pacienteId}
+                  </p>
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Especialidad</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                    Especialidad
+                  </label>
                   <p className="text-sm font-bold uppercase text-primary">{cita.especialidad}</p>
                   <p className="text-[10px] font-medium text-slate-600">Atención Ambulatoria</p>
                 </div>
@@ -133,13 +179,15 @@ export default function DetalleCitaPage() {
               {/* Prescripción Médica y Plan de Manejo (RP) */}
               <div className="min-h-[220px] mb-10">
                 <div className="flex items-center gap-2 mb-4">
-                   <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <FileText className="h-5 w-5 text-primary" />
-                   </div>
-                   <h3 className="font-black text-slate-900 uppercase tracking-tight text-sm">RP / Indicaciones y Plan de Manejo</h3>
+                  <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                    <FileText className="h-5 w-5 text-primary" />
+                  </div>
+                  <h3 className="font-black text-slate-900 uppercase tracking-tight text-sm">
+                    RP / Indicaciones y Plan de Manejo
+                  </h3>
                 </div>
                 <div className="pl-10">
-                   <div className="text-sm text-slate-700 leading-relaxed font-mono whitespace-pre-line border-l-4 border-primary/10 pl-6 py-2">
+                  <div className="text-sm text-slate-700 leading-relaxed font-mono whitespace-pre-line border-l-4 border-primary/10 pl-6 py-2">
                     {cleanRecomendaciones}
                   </div>
                 </div>
@@ -148,26 +196,35 @@ export default function DetalleCitaPage() {
               {/* Firma y Credenciales del Profesional de Salud */}
               <div className="mt-12 pt-8 border-t border-dashed border-slate-200 grid grid-cols-2 gap-4">
                 <div className="text-[10px] text-slate-400 self-end">
-                   Sello de Validación Digital.<br/>
-                   Emisión: {cita.fecha} — {cita.hora}<br/>
-                   Vigencia: 30 días calendario.
+                  Sello de Validación Digital.
+                  <br />
+                  Emisión: {cita.fecha} — {cita.hora}
+                  <br />
+                  Vigencia: 30 días calendario.
                 </div>
                 <div className="text-right">
-                   <div className="inline-block border-b-2 border-slate-800 pb-1 mb-2 px-8">
-                      <span className="font-heading italic text-xl text-slate-900 font-bold tracking-widest opacity-80">
-                        {cita.doctorNombre.split(" ").filter(n => n.length > 2).map(n => n[0]).join("")}-VTS
-                      </span>
-                   </div>
-                   <p className="text-[11px] font-black uppercase text-slate-900 leading-none">{cita.doctorNombre}</p>
-                   <p className="text-[9px] font-bold text-slate-500 uppercase mt-1">
-                     Reg. Médico: {doctorTP} | CC: {doctorDoc}
-                   </p>
+                  <div className="inline-block border-b-2 border-slate-800 pb-1 mb-2 px-8">
+                    <span className="font-heading italic text-xl text-slate-900 font-bold tracking-widest opacity-80">
+                      {cita.doctorNombre
+                        .split(" ")
+                        .filter((n) => n.length > 2)
+                        .map((n) => n[0])
+                        .join("")}
+                      -VTS
+                    </span>
+                  </div>
+                  <p className="text-[11px] font-black uppercase text-slate-900 leading-none">
+                    {cita.doctorNombre}
+                  </p>
+                  <p className="text-[9px] font-bold text-slate-500 uppercase mt-1">
+                    Reg. Médico: {doctorTP} | CC: {doctorDoc}
+                  </p>
                 </div>
               </div>
 
               {/* Marca de agua decorativa para autenticidad visual */}
               <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-[0.02] pointer-events-none -rotate-12">
-                 <Stethoscope className="h-80 w-80 text-primary" />
+                <Stethoscope className="h-80 w-80 text-primary" />
               </div>
             </div>
           </div>

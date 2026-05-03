@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 /**
  * Interfaz que define la estructura de un Departamento.
  */

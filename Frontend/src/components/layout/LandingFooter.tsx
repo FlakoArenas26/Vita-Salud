@@ -31,9 +31,21 @@ export function LandingFooter() {
           <div className="text-center">
             <h4 className="font-semibold text-foreground mb-3">Características</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><a href="#como-funciona" className="hover:text-primary transition">Agendar Citas</a></li>
-              <li><a href="#especialidades" className="hover:text-primary transition">Especialidades</a></li>
-              <li><a href="#caracteristicas" className="hover:text-primary transition">Seguridad</a></li>
+              <li>
+                <a href="#como-funciona" className="hover:text-primary transition">
+                  Agendar Citas
+                </a>
+              </li>
+              <li>
+                <a href="#especialidades" className="hover:text-primary transition">
+                  Especialidades
+                </a>
+              </li>
+              <li>
+                <a href="#caracteristicas" className="hover:text-primary transition">
+                  Seguridad
+                </a>
+              </li>
             </ul>
           </div>
 
@@ -41,8 +53,16 @@ export function LandingFooter() {
           <div className="text-center">
             <h4 className="font-semibold text-foreground mb-3">Legal</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li><a href="#" className="hover:text-primary transition">Privacidad</a></li>
-              <li><a href="#" className="hover:text-primary transition">Términos de Uso</a></li>
+              <li>
+                <a href="#" className="hover:text-primary transition">
+                  Privacidad
+                </a>
+              </li>
+              <li>
+                <a href="#" className="hover:text-primary transition">
+                  Términos de Uso
+                </a>
+              </li>
             </ul>
           </div>
 
@@ -69,7 +89,8 @@ export function LandingFooter() {
         {/* Derechos de autor y cierre institucional de la página */}
         <div className="border-t border-border pt-6 text-center">
           <p className="text-sm text-muted-foreground">
-            © 2026 VitaSalud. Todos los derechos reservados. Plataforma segura para agendar citas médicas en Colombia.
+            © 2026 VitaSalud. Todos los derechos reservados. Plataforma segura para agendar citas
+            médicas en Colombia.
           </p>
         </div>
       </div>

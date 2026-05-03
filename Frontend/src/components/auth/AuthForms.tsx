@@ -4,29 +4,25 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from "@/components/ui/combobox";
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+} from "@/components/ui/combobox";
 import { Input } from "@/components/ui/input";
 import Swal from "sweetalert2";
 import {
-  findPacienteByEmail,
-  verifyPassword,
   setCurrentUser,
-  isBlocked,
-  incrementLoginAttempt,
-  resetLoginAttempts,
-  savePaciente,
-  hashPassword,
   tiposDocumento,
-  type Paciente,
-  findMedicoByEmail,
-  findAdminByEmail,
-  saveMedico,
-  updateMedico,
   especialidades,
-  seedAppointmentsForDoctor,
   normalize,
   type Doctor,
-} from "@/lib/mockData";
+  type Paciente,
+} from "@/lib/auth";
+import { apiService } from "@/lib/apiService";
 import {
   fetchCiudadesByDepartamento,
   fetchDepartamentos,
@@ -34,8 +30,8 @@ import {
   type Departamento,
 } from "@/lib/colombiaApi";
 
-/** 
- * Propiedades para el componente LoginForm 
+/**
+ * Propiedades para el componente LoginForm
  */
 interface LoginFormProps {
   /** Función opcional que se ejecuta tras un login exitoso */
@@ -55,28 +51,6 @@ export function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
   const [rol, setRol] = useState("paciente");
   const [showPwd, setShowPwd] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [blockTimer, setBlockTimer] = useState(0);
-
-  /**
-   * Verifica si la cuenta asociada al email ingresado está bloqueada.
-   */
-  const checkBlock = useCallback(() => {
-    if (!email) {
-      setBlockTimer(0);
-      return;
-    }
-    const { blocked, remainingSeconds } = isBlocked(email.trim().toLowerCase());
-    setBlockTimer(blocked ? remainingSeconds : 0);
-  }, [email]);
-
-  /** 
-   * Hook para ejecutar la verificación de bloqueo periódicamente (cada segundo).
-   */
-  useEffect(() => {
-    checkBlock();
-    const interval = setInterval(checkBlock, 1000);
-    return () => clearInterval(interval);
-  }, [checkBlock]);
 
   /**
    * Procesa la redirección o ejecución de callback tras un inicio de sesión correcto.
@@ -91,7 +65,6 @@ export function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
 
   /**
    * Maneja el envío del formulario de login.
-   * Realiza validaciones de campos, bloqueos e intentos antes de autenticar.
    */
   async function handleSubmit(ev: FormEvent) {
     ev.preventDefault();
@@ -110,87 +83,46 @@ export function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
       return;
     }
 
-    // Verificar si la cuenta está bloqueada por demasiados intentos
-    const { blocked, remainingSeconds } = isBlocked(trimEmail);
-    if (blocked) {
+    setSubmitting(true);
+
+    try {
+      const response = await apiService.auth.login({
+        email: trimEmail,
+        password,
+      });
+
+      // Save token
+      if (response.data.token) {
+        sessionStorage.setItem("vitasalud_token", response.data.token);
+      }
+
+      // Update current user
+      setCurrentUser(response.data.user);
+      
+      setSubmitting(false);
+
+      await Swal.fire({
+        icon: "success",
+        title: "¡Bienvenido/a!",
+        html: `Hola, <b>${response.data.user.nombre.split(" ")[0]}</b>. Iniciando sesión...`,
+        position: "center",
+        timer: 2500,
+        timerProgressBar: true,
+        showConfirmButton: false,
+      });
+
+      handleSuccess();
+    } catch (error: any) {
+      setSubmitting(false);
       Swal.fire({
-        icon: "warning",
-        title: "Cuenta bloqueada",
-        text: `Demasiados intentos fallidos. Intenta de nuevo en ${remainingSeconds} segundos.`,
+        icon: "error",
+        title: "Error de inicio de sesión",
+        text: error.message || "Credenciales incorrectas",
         timer: 3000,
         timerProgressBar: true,
         showConfirmButton: false,
       });
-      return;
     }
-
-    setSubmitting(true);
-    await new Promise((resolve) => setTimeout(resolve, 300)); // Simulación de retraso de red
-
-    let usuario = null;
-    if (rol === "paciente") {
-      usuario = findPacienteByEmail(trimEmail);
-    } else if (rol === "medico") {
-      usuario = findMedicoByEmail(trimEmail);
-    } else if (rol === "admin") {
-      usuario = findAdminByEmail(trimEmail);
-    }
-
-    // DIAGNÓSTICO DE LOGIN
-    console.group("🔍 Diagnóstico de Autenticación");
-    console.log("Rol:", rol);
-    console.log("Email buscado:", trimEmail);
-    console.log("Usuario encontrado:", usuario ? "✅" : "❌");
-    if (usuario) {
-      const pwdMatch = verifyPassword(password, usuario.password);
-      console.log("Nombre:", usuario.nombre);
-      console.log("Email en BD:", usuario.email);
-      console.log("Password OK:", pwdMatch ? "✅" : "❌");
-    }
-    console.groupEnd();
-
-    // Validación de credenciales
-    if (!usuario || !verifyPassword(password, usuario.password)) {
-      const attempts = incrementLoginAttempt(trimEmail);
-      setSubmitting(false);
-      
-      if (attempts.blockedUntil) {
-        Swal.fire({
-          icon: "warning",
-          title: "Cuenta bloqueada",
-          text: "Has superado el máximo de 3 intentos. Espera 30 segundos.",
-          timer: 3000,
-          timerProgressBar: true,
-          showConfirmButton: false,
-        });
-      } else {
-        Swal.fire({
-          icon: "error",
-          title: "Credenciales incorrectas",
-          text: `Email o contraseña inválidos. Intentos restantes: ${3 - attempts.count}`,
-          timer: 2500,
-          timerProgressBar: true,
-          showConfirmButton: false,
-        });
-      }
-      return;
-    }
-
-    // Login exitoso
-    resetLoginAttempts(trimEmail);
-    setCurrentUser(usuario);
-    setSubmitting(false);
-    
-    await Swal.fire({
-      icon: "success",
-      title: "¡Bienvenido/a!",
-      html: `Hola, <b>${usuario.nombre.split(" ")[0]}</b>. Iniciando sesión...`,
-      timer: 3000,
-      timerProgressBar: true,
-      showConfirmButton: false,
-    });
-    
-    handleSuccess();
   }
 
   const inputClass =
@@ -246,35 +178,25 @@ export function LoginForm({ onSuccess, onSwitchToRegister }: LoginFormProps) {
           <ComboboxContent>
             <ComboboxEmpty>No hay roles disponibles.</ComboboxEmpty>
             <ComboboxList>
-              {(item) => (
-                <ComboboxItem item={item}>
-                  {item.label}
-                </ComboboxItem>
-              )}
+              {(item) => <ComboboxItem item={item}>{item.label}</ComboboxItem>}
             </ComboboxList>
           </ComboboxContent>
         </Combobox>
       </div>
-
-      {blockTimer > 0 && (
-        <div className="p-3 rounded-lg bg-warning/10 text-warning-foreground text-sm text-center font-medium">
-          ⚠️ Cuenta bloqueada. Intenta en {blockTimer}s
-        </div>
-      )}
 
       <Button
         type="submit"
         variant="default"
         size="lg"
         className="w-full text-base py-6"
-        disabled={submitting || blockTimer > 0}
+        disabled={submitting}
       >
         {submitting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
         Iniciar Sesión
       </Button>
 
       <div className="text-center text-sm text-muted-foreground">
-        ¿No tienes cuenta?{' '}
+        ¿No tienes cuenta?{" "}
         <button
           type="button"
           onClick={() => {
@@ -365,7 +287,7 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
       .finally(() => setLoadingCities(false));
   }, [form.departamentoId]);
 
-  /** 
+  /**
    * Maneja la redirección o acción tras un registro satisfactorio.
    */
   const handleSuccess = () => {
@@ -426,7 +348,7 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
 
   /**
    * Maneja el envío del formulario de registro.
-   * Valida datos, verifica duplicados de email y persiste el nuevo paciente.
+   * Valida datos y persiste el nuevo paciente a través de la API.
    */
   async function handleSubmit(ev: FormEvent) {
     ev.preventDefault();
@@ -441,58 +363,54 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
       });
       return;
     }
-    
-    // Verificar si el email ya existe en la base de datos simulada
-    if (findPacienteByEmail(form.email)) {
-      Swal.fire({
-        icon: "error",
-        title: "Email ya registrado",
-        text: "Ya existe una cuenta con este email.",
-        timer: 2500,
-        timerProgressBar: true,
-        showConfirmButton: false,
-      });
-      return;
-    }
 
     setSubmitting(true);
     const dep = departamentos.find((d) => d.id === parseInt(form.departamentoId));
     const ciu = ciudades.find((c) => c.id === parseInt(form.ciudadId));
-    
-    // Construcción del objeto Paciente
-    const paciente: Paciente = {
-      id:
-        typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : Date.now().toString(36) + Math.random().toString(36).substr(2),
-      tipoDocumento: form.tipoDocumento,
-      identificacion: form.identificacion.trim(),
-      nombre: form.nombre.trim(),
-      edad: parseInt(form.edad),
-      departamentoId: dep?.id ?? 0,
-      departamentoNombre: dep?.name ?? "",
-      ciudadId: ciu?.id ?? 0,
-      ciudadNombre: ciu?.name ?? "",
-      email: form.email.trim().toLowerCase(),
-      password: hashPassword(form.password),
-      rol: "paciente",
-    };
 
-    // Guardado y login automático tras registro exitoso
-    savePaciente(paciente);
-    setCurrentUser(paciente);
-    setSubmitting(false);
-    
-    await Swal.fire({
-      icon: "success",
-      title: "¡Registro exitoso!",
-      text: "Tu cuenta ha sido creada correctamente. En unos segundos serás redirigido para agendar tus citas.",
-      timer: 2500,
-      timerProgressBar: true,
-      showConfirmButton: false,
-    });
-    
-    handleSuccess();
+    try {
+      const response = await apiService.auth.registerPatient({
+        tipoDocumento: form.tipoDocumento,
+        identificacion: form.identificacion.trim(),
+        nombre: form.nombre.trim(),
+        edad: parseInt(form.edad),
+        departamentoId: dep?.id ?? 0,
+        ciudadId: ciu?.id ?? 0,
+        email: form.email.trim().toLowerCase(),
+        password: form.password,
+      });
+
+      // Login automático tras registro exitoso
+      if (response.data.token) {
+        sessionStorage.setItem("vitasalud_token", response.data.token);
+        if (response.data.refreshToken) {
+          sessionStorage.setItem("vitasalud_refresh_token", response.data.refreshToken);
+        }
+      }
+      setCurrentUser(response.data.user);
+      setSubmitting(false);
+
+      await Swal.fire({
+        icon: "success",
+        title: "¡Registro exitoso!",
+        text: "Tu cuenta ha sido creada correctamente. En unos segundos serás redirigido para agendar tus citas.",
+        timer: 2500,
+        timerProgressBar: true,
+        showConfirmButton: false,
+      });
+
+      handleSuccess();
+    } catch (error: any) {
+      setSubmitting(false);
+      Swal.fire({
+        icon: "error",
+        title: "Error al registrar",
+        text: error.message || "No se pudo completar el registro.",
+        timer: 3000,
+        timerProgressBar: true,
+        showConfirmButton: false,
+      });
+    }
   }
 
   /**
@@ -532,7 +450,9 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
       {/* Fila 1: Tipo y Número de Documento */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">Tipo de Documento</label>
+          <label className="block text-sm font-medium text-foreground mb-1.5">
+            Tipo de Documento
+          </label>
           <Combobox
             items={tiposDocumento}
             value={form.tipoDocumento}
@@ -544,19 +464,19 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
             <ComboboxContent>
               <ComboboxEmpty>No se encontraron tipos.</ComboboxEmpty>
               <ComboboxList>
-                {(item) => (
-                  <ComboboxItem item={item}>
-                    {item.label}
-                  </ComboboxItem>
-                )}
+                {(item) => <ComboboxItem item={item}>{item.label}</ComboboxItem>}
               </ComboboxList>
             </ComboboxContent>
           </Combobox>
-          {errors.tipoDocumento && <p className="text-xs text-destructive mt-1 text-center">{errors.tipoDocumento}</p>}
+          {errors.tipoDocumento && (
+            <p className="text-xs text-destructive mt-1 text-center">{errors.tipoDocumento}</p>
+          )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">Número de Documento</label>
+          <label className="block text-sm font-medium text-foreground mb-1.5">
+            Número de Documento
+          </label>
           <Input
             type="text"
             placeholder="Ej: 1020304050"
@@ -564,14 +484,18 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
             onChange={(e) => handleChange("identificacion", e.target.value)}
             className={inputClass("identificacion")}
           />
-          {errors.identificacion && <p className="text-xs text-destructive mt-1 text-center">{errors.identificacion}</p>}
+          {errors.identificacion && (
+            <p className="text-xs text-destructive mt-1 text-center">{errors.identificacion}</p>
+          )}
         </div>
       </div>
 
       {/* Fila 2: Nombre Completo y Edad */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="sm:col-span-2">
-          <label className="block text-sm font-medium text-foreground mb-1.5">Nombre completo</label>
+          <label className="block text-sm font-medium text-foreground mb-1.5">
+            Nombre completo
+          </label>
           <Input
             type="text"
             placeholder="Nombre y apellidos"
@@ -612,19 +536,20 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
             itemValue={(item) => String(item.id)}
             itemLabel={(item) => item.name}
           >
-            <ComboboxInput placeholder={loadingDeps ? "Cargando..." : "Seleccionar"} className={inputClass("departamentoId")} />
+            <ComboboxInput
+              placeholder={loadingDeps ? "Cargando..." : "Seleccionar"}
+              className={inputClass("departamentoId")}
+            />
             <ComboboxContent>
               <ComboboxEmpty>No se encontraron.</ComboboxEmpty>
               <ComboboxList>
-                {(item) => (
-                  <ComboboxItem item={item}>
-                    {item.name}
-                  </ComboboxItem>
-                )}
+                {(item) => <ComboboxItem item={item}>{item.name}</ComboboxItem>}
               </ComboboxList>
             </ComboboxContent>
           </Combobox>
-          {errors.departamentoId && <p className="text-xs text-destructive mt-1">{errors.departamentoId}</p>}
+          {errors.departamentoId && (
+            <p className="text-xs text-destructive mt-1">{errors.departamentoId}</p>
+          )}
         </div>
 
         <div>
@@ -636,15 +561,14 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
             itemValue={(item) => String(item.id)}
             itemLabel={(item) => item.name}
           >
-            <ComboboxInput placeholder={loadingCities ? "Cargando..." : "Seleccionar"} className={inputClass("ciudadId")} />
+            <ComboboxInput
+              placeholder={loadingCities ? "Cargando..." : "Seleccionar"}
+              className={inputClass("ciudadId")}
+            />
             <ComboboxContent>
               <ComboboxEmpty>No se encontraron.</ComboboxEmpty>
               <ComboboxList>
-                {(item) => (
-                  <ComboboxItem item={item}>
-                    {item.name}
-                  </ComboboxItem>
-                )}
+                {(item) => <ComboboxItem item={item}>{item.name}</ComboboxItem>}
               </ComboboxList>
             </ComboboxContent>
           </Combobox>
@@ -704,7 +628,9 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5 mt-[1px]">Confirmar contraseña</label>
+          <label className="block text-sm font-medium text-foreground mb-1.5 mt-[1px]">
+            Confirmar contraseña
+          </label>
           <div className="relative">
             <Input
               type={showConfirmPwd ? "text" : "password"}
@@ -721,7 +647,9 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
               {showConfirmPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </button>
           </div>
-          {errors.confirmPassword && <p className="text-xs text-destructive mt-1">{errors.confirmPassword}</p>}
+          {errors.confirmPassword && (
+            <p className="text-xs text-destructive mt-1">{errors.confirmPassword}</p>
+          )}
         </div>
       </div>
 
@@ -730,7 +658,9 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
         <div className="space-y-2 mt-2">
           <div className="flex gap-1 text-[10px] sm:text-xs uppercase tracking-[0.18em] text-muted-foreground">
             <span>Seguridad</span>
-            <span className="ml-auto font-medium">{strengthLabel(passwordStrength(form.password))}</span>
+            <span className="ml-auto font-medium">
+              {strengthLabel(passwordStrength(form.password))}
+            </span>
           </div>
           <div className="flex h-1.5 gap-1">
             {[...Array(4)].map((_, i) => (
@@ -745,13 +675,17 @@ export function RegisterForm({ onSuccess, onSwitchToLogin }: RegisterFormProps) 
 
       <div className="pt-2">
         <Button type="submit" variant="default" size="lg" className="w-full" disabled={submitting}>
-          {submitting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+          {submitting ? (
+            <Loader2 className="h-5 w-5 animate-spin mr-2" />
+          ) : (
+            <RefreshCw className="h-4 w-4 mr-2" />
+          )}
           Crear Cuenta
         </Button>
       </div>
 
       <div className="text-center text-sm text-muted-foreground border-t pt-4">
-        ¿Ya tienes cuenta?{' '}
+        ¿Ya tienes cuenta?{" "}
         <button
           type="button"
           onClick={() => {
@@ -787,7 +721,12 @@ interface DoctorRegisterFormProps extends RegisterFormProps {
  * Componente que gestiona el formulario de Registro y Edición de Médicos.
  * Incluye lógica de especialidades, validación de tarjeta profesional y departamentos.
  */
-export function DoctorRegisterForm({ onSuccess, onSwitchToLogin, initialData, isAdminMode }: DoctorRegisterFormProps) {
+export function DoctorRegisterForm({
+  onSuccess,
+  onSwitchToLogin,
+  initialData,
+  isAdminMode,
+}: DoctorRegisterFormProps) {
   const navigate = useNavigate();
   const [form, setForm] = useState({
     nombre: initialData ? initialData.nombre.replace(/^(Dr\.|Dra\.)\s*/, "") : "",
@@ -830,9 +769,6 @@ export function DoctorRegisterForm({ onSuccess, onSwitchToLogin, initialData, is
       .finally(() => setLoadingDeps(false));
   }, []);
 
-  /**
-   * Actualiza el listado de ciudades cada vez que cambia el departamento seleccionado.
-   */
   useEffect(() => {
     const depId = parseInt(form.departamentoId);
     if (!depId) {
@@ -840,16 +776,18 @@ export function DoctorRegisterForm({ onSuccess, onSwitchToLogin, initialData, is
       return;
     }
     setLoadingCities(true);
-    setForm((prev) => ({ ...prev, ciudadId: "" }));
+    
     fetchCiudadesByDepartamento(depId)
-      .then(setCiudades)
+      .then((data) => {
+        setCiudades(data);
+        // Si hay initialData y la ciudad coincide con una del departamento, la mantenemos
+        if (initialData && initialData.ciudadId && data.some(c => c.id === initialData.ciudadId)) {
+           setForm(prev => ({ ...prev, ciudadId: initialData.ciudadId.toString() }));
+        }
+      })
       .catch(() => setCiudades([]))
       .finally(() => setLoadingCities(false));
   }, [form.departamentoId]);
-
-  /** 
-   * Maneja la redirección o acción tras un registro satisfactorio.
-   */
   const handleSuccess = () => {
     if (onSuccess) {
       onSuccess();
@@ -895,28 +833,31 @@ export function DoctorRegisterForm({ onSuccess, onSwitchToLogin, initialData, is
     if (!form.especialidad) e.especialidad = "Selecciona una especialidad";
     if (!form.tipoDocumento) e.tipoDocumento = "Selecciona tipo de documento";
     if (!form.identificacion.trim()) e.identificacion = "El número de documento es requerido";
-    if (!form.tarjetaProfesional.trim()) e.tarjetaProfesional = "La tarjeta profesional es requerida";
+    if (!form.tarjetaProfesional.trim())
+      e.tarjetaProfesional = "La tarjeta profesional es requerida";
     if (!form.departamentoId) e.departamentoId = "Selecciona un departamento";
     if (!form.ciudadId) e.ciudadId = "Selecciona una ciudad";
     if (!form.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
       e.email = "Ingresa un email válido";
-    
+
     // En modo edición, la contraseña es opcional
     if (!initialData) {
       if (form.password.length < 12) e.password = "Mínimo 12 caracteres";
-      if (form.password !== form.confirmPassword) e.confirmPassword = "Las contraseñas no coinciden";
+      if (form.password !== form.confirmPassword)
+        e.confirmPassword = "Las contraseñas no coinciden";
     } else if (form.password) {
       if (form.password.length < 12) e.password = "Mínimo 12 caracteres";
-      if (form.password !== form.confirmPassword) e.confirmPassword = "Las contraseñas no coinciden";
+      if (form.password !== form.confirmPassword)
+        e.confirmPassword = "Las contraseñas no coinciden";
     }
-    
+
     setErrors(e);
     return Object.keys(e).length === 0;
   }
 
   /**
    * Maneja el envío del formulario de registro.
-   * Valida datos, verifica duplicados de email y persiste el nuevo médico.
+   * Valida datos y persiste el nuevo médico a través de la API.
    */
   async function handleSubmit(ev: FormEvent) {
     ev.preventDefault();
@@ -931,79 +872,72 @@ export function DoctorRegisterForm({ onSuccess, onSwitchToLogin, initialData, is
       });
       return;
     }
-    
-    // Verificar si el email ya existe (solo si es nuevo o cambió)
-    if (!initialData || form.email !== initialData.email) {
-      if (findMedicoByEmail(form.email)) {
-        Swal.fire({
-          icon: "error",
-          title: "Email ya registrado",
-          text: "Ya existe una cuenta con este email.",
-          timer: 2500,
-          timerProgressBar: true,
-          showConfirmButton: false,
-        });
-        return;
-      }
-    }
 
     setSubmitting(true);
     const dep = departamentos.find((d) => d.id === parseInt(form.departamentoId));
     const ciu = ciudades.find((c) => c.id === parseInt(form.ciudadId));
-    
-    // Construcción del objeto Doctor
-    const doctor: Doctor = {
-      id: initialData?.id || (
-        typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : Date.now().toString(36) + Math.random().toString(36).substr(2)
-      ),
-      nombre: `${form.titulo} ${form.nombre.trim()}`,
-      especialidad: form.especialidad,
-      tipoDocumento: form.tipoDocumento,
-      identificacion: form.identificacion.trim(),
-      tarjetaProfesional: form.tarjetaProfesional.trim(),
-      departamentoId: dep?.id ?? 0,
-      ciudadId: ciu?.id ?? 0,
-      activo: initialData?.activo ?? true,
-      experienciaAnios: initialData?.experienciaAnios ?? (Math.floor(Math.random() * 25) + 3),
-      email: normalize(form.email.trim()),
-      password: form.password ? hashPassword(form.password) : (initialData?.password || ""),
-      rol: "medico",
-    };
+    try {
+      if (initialData) {
+        await apiService.users.updateUser(initialData.id, {
+          nombre: `${form.titulo} ${form.nombre.trim()}`,
+          email: normalize(form.email.trim()),
+          especialidad: form.especialidad,
+          tipoDocumento: form.tipoDocumento,
+          identificacion: form.identificacion.trim(),
+          tarjetaProfesional: form.tarjetaProfesional.trim(),
+          departamentoId: dep?.id ?? 0,
+          ciudadId: ciu?.id ?? 0,
+          password: form.password || undefined,
+        });
+      } else {
+        const response = await apiService.auth.registerDoctor({
+          nombre: `${form.titulo} ${form.nombre.trim()}`,
+          especialidad: form.especialidad,
+          tipoDocumento: form.tipoDocumento,
+          identificacion: form.identificacion.trim(),
+          tarjetaProfesional: form.tarjetaProfesional.trim(),
+          departamentoId: dep?.id ?? 0,
+          ciudadId: ciu?.id ?? 0,
+          experienciaAnios: Math.floor(Math.random() * 25) + 3,
+          email: normalize(form.email.trim()),
+          password: form.password,
+        });
 
-    // Guardado
-    if (initialData) {
-      updateMedico(doctor);
-    } else {
-      saveMedico(doctor);
-      // Si es un registro nuevo (especialmente por admin), sembramos citas de prueba
-      if (isAdminMode) {
-        seedAppointmentsForDoctor(doctor);
+        if (!isAdminMode) {
+          if (response.data.token) {
+            sessionStorage.setItem("vitasalud_token", response.data.token);
+          }
+          setCurrentUser(response.data.user);
+        }
       }
-    }
 
-    // Solo cambiar sesión si NO estamos en modo admin
-    if (!isAdminMode) {
-      setCurrentUser(doctor);
-    }
+      setSubmitting(false);
 
-    setSubmitting(false);
-    
-    await Swal.fire({
-      icon: "success",
-      title: initialData ? "¡Cambios guardados!" : "¡Registro exitoso!",
-      text: initialData 
-        ? "La información del médico ha sido actualizada correctamente."
-        : isAdminMode 
-          ? "El médico ha sido registrado en el sistema."
-          : "Tu cuenta ha sido creada correctamente. En unos segundos serás redirigido a tu panel médico.",
-      timer: 2500,
-      timerProgressBar: true,
-      showConfirmButton: false,
-    });
-    
-    handleSuccess();
+      await Swal.fire({
+        icon: "success",
+        title: initialData ? "¡Cambios guardados!" : "¡Registro exitoso!",
+        text: initialData
+          ? "La información del médico ha sido actualizada correctamente."
+          : isAdminMode
+            ? "El médico ha sido registrado en el sistema."
+            : "Tu cuenta ha sido creada correctamente. En unos segundos serás redirigido a tu panel médico.",
+        timer: 2500,
+        timerProgressBar: true,
+        showConfirmButton: false,
+      });
+
+      handleSuccess();
+    } catch (error: any) {
+      setSubmitting(false);
+      Swal.fire({
+        icon: "error",
+        title: "Error al registrar",
+        text: error.message || "No se pudo registrar el médico.",
+        timer: 3000,
+        timerProgressBar: true,
+        showConfirmButton: false,
+      });
+    }
   }
 
   /**
@@ -1045,7 +979,9 @@ export function DoctorRegisterForm({ onSuccess, onSwitchToLogin, initialData, is
         <div className="sm:col-span-1">
           <div className="grid grid-cols-[80px_1fr] gap-2">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5 text-center">Título</label>
+              <label className="block text-sm font-medium text-foreground mb-1.5 text-center">
+                Título
+              </label>
               <Combobox
                 items={[
                   { value: "Dr.", label: "Dr." },
@@ -1059,17 +995,15 @@ export function DoctorRegisterForm({ onSuccess, onSwitchToLogin, initialData, is
                 <ComboboxInput placeholder="Tít." className={inputClass("titulo")} />
                 <ComboboxContent>
                   <ComboboxList>
-                    {(item) => (
-                      <ComboboxItem item={item}>
-                        {item.label}
-                      </ComboboxItem>
-                    )}
+                    {(item) => <ComboboxItem item={item}>{item.label}</ComboboxItem>}
                   </ComboboxList>
                 </ComboboxContent>
               </Combobox>
             </div>
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">Nombre completo</label>
+              <label className="block text-sm font-medium text-foreground mb-1.5">
+                Nombre completo
+              </label>
               <Input
                 type="text"
                 placeholder="Nombre y apellidos"
@@ -1091,26 +1025,29 @@ export function DoctorRegisterForm({ onSuccess, onSwitchToLogin, initialData, is
             itemValue={(item) => item}
             itemLabel={(item) => item}
           >
-            <ComboboxInput placeholder="Seleccionar especialidad" className={inputClass("especialidad")} />
+            <ComboboxInput
+              placeholder="Seleccionar especialidad"
+              className={inputClass("especialidad")}
+            />
             <ComboboxContent>
               <ComboboxEmpty>No se encontraron especialidades.</ComboboxEmpty>
               <ComboboxList>
-                {(item) => (
-                  <ComboboxItem item={item}>
-                    {item}
-                  </ComboboxItem>
-                )}
+                {(item) => <ComboboxItem item={item}>{item}</ComboboxItem>}
               </ComboboxList>
             </ComboboxContent>
           </Combobox>
-          {errors.especialidad && <p className="text-xs text-destructive mt-1">{errors.especialidad}</p>}
+          {errors.especialidad && (
+            <p className="text-xs text-destructive mt-1">{errors.especialidad}</p>
+          )}
         </div>
       </div>
 
       {/* Fila 2: Tipo de Documento e Identificación */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">Tipo de Documento</label>
+          <label className="block text-sm font-medium text-foreground mb-1.5">
+            Tipo de Documento
+          </label>
           <Combobox
             items={tiposDocumento}
             value={form.tipoDocumento}
@@ -1122,19 +1059,19 @@ export function DoctorRegisterForm({ onSuccess, onSwitchToLogin, initialData, is
             <ComboboxContent>
               <ComboboxEmpty>No encontrado.</ComboboxEmpty>
               <ComboboxList>
-                {(item) => (
-                  <ComboboxItem item={item}>
-                    {item.label}
-                  </ComboboxItem>
-                )}
+                {(item) => <ComboboxItem item={item}>{item.label}</ComboboxItem>}
               </ComboboxList>
             </ComboboxContent>
           </Combobox>
-          {errors.tipoDocumento && <p className="text-xs text-destructive mt-1">{errors.tipoDocumento}</p>}
+          {errors.tipoDocumento && (
+            <p className="text-xs text-destructive mt-1">{errors.tipoDocumento}</p>
+          )}
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">Número de Documento</label>
+          <label className="block text-sm font-medium text-foreground mb-1.5">
+            Número de Documento
+          </label>
           <Input
             type="text"
             placeholder="Ej: 1020304050"
@@ -1142,14 +1079,18 @@ export function DoctorRegisterForm({ onSuccess, onSwitchToLogin, initialData, is
             onChange={(e) => handleChange("identificacion", e.target.value)}
             className={inputClass("identificacion")}
           />
-          {errors.identificacion && <p className="text-xs text-destructive mt-1">{errors.identificacion}</p>}
+          {errors.identificacion && (
+            <p className="text-xs text-destructive mt-1">{errors.identificacion}</p>
+          )}
         </div>
       </div>
 
       {/* Fila 3: Tarjeta Profesional y Email */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-foreground mb-1.5">Tarjeta Profesional</label>
+          <label className="block text-sm font-medium text-foreground mb-1.5">
+            Tarjeta Profesional
+          </label>
           <Input
             type="text"
             placeholder="Ej: TP123456"
@@ -1157,7 +1098,9 @@ export function DoctorRegisterForm({ onSuccess, onSwitchToLogin, initialData, is
             onChange={(e) => handleChange("tarjetaProfesional", e.target.value)}
             className={inputClass("tarjetaProfesional")}
           />
-          {errors.tarjetaProfesional && <p className="text-xs text-destructive mt-1">{errors.tarjetaProfesional}</p>}
+          {errors.tarjetaProfesional && (
+            <p className="text-xs text-destructive mt-1">{errors.tarjetaProfesional}</p>
+          )}
         </div>
 
         <div>
@@ -1185,19 +1128,20 @@ export function DoctorRegisterForm({ onSuccess, onSwitchToLogin, initialData, is
             itemValue={(item) => String(item.id)}
             itemLabel={(item) => item.name}
           >
-            <ComboboxInput placeholder={loadingDeps ? "Cargando..." : "Seleccionar"} className={inputClass("departamentoId")} />
+            <ComboboxInput
+              placeholder={loadingDeps ? "Cargando..." : "Seleccionar"}
+              className={inputClass("departamentoId")}
+            />
             <ComboboxContent>
               <ComboboxEmpty>No se encontraron.</ComboboxEmpty>
               <ComboboxList>
-                {(item) => (
-                  <ComboboxItem item={item}>
-                    {item.name}
-                  </ComboboxItem>
-                )}
+                {(item) => <ComboboxItem item={item}>{item.name}</ComboboxItem>}
               </ComboboxList>
             </ComboboxContent>
           </Combobox>
-          {errors.departamentoId && <p className="text-xs text-destructive mt-1">{errors.departamentoId}</p>}
+          {errors.departamentoId && (
+            <p className="text-xs text-destructive mt-1">{errors.departamentoId}</p>
+          )}
         </div>
 
         <div>
@@ -1209,15 +1153,14 @@ export function DoctorRegisterForm({ onSuccess, onSwitchToLogin, initialData, is
             itemValue={(item) => String(item.id)}
             itemLabel={(item) => item.name}
           >
-            <ComboboxInput placeholder={loadingCities ? "Cargando..." : "Seleccionar"} className={inputClass("ciudadId")} />
+            <ComboboxInput
+              placeholder={loadingCities ? "Cargando..." : "Seleccionar"}
+              className={inputClass("ciudadId")}
+            />
             <ComboboxContent>
               <ComboboxEmpty>No se encontraron.</ComboboxEmpty>
               <ComboboxList>
-                {(item) => (
-                  <ComboboxItem item={item}>
-                    {item.name}
-                  </ComboboxItem>
-                )}
+                {(item) => <ComboboxItem item={item}>{item.name}</ComboboxItem>}
               </ComboboxList>
             </ComboboxContent>
           </Combobox>
@@ -1229,9 +1172,7 @@ export function DoctorRegisterForm({ onSuccess, onSwitchToLogin, initialData, is
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <div className="flex items-center justify-between mb-1.5 h-5">
-            <label className="block text-sm font-medium text-foreground">
-              Contraseña
-            </label>
+            <label className="block text-sm font-medium text-foreground">Contraseña</label>
             <button
               type="button"
               onClick={() => {
@@ -1269,7 +1210,9 @@ export function DoctorRegisterForm({ onSuccess, onSwitchToLogin, initialData, is
           {(!initialData || form.password) && (
             <div className="animate-in fade-in slide-in-from-top-1 duration-200">
               <div className="flex items-center justify-between mb-1.5 h-5">
-                <label className="block text-sm font-medium text-foreground">Confirmar Contraseña</label>
+                <label className="block text-sm font-medium text-foreground">
+                  Confirmar Contraseña
+                </label>
               </div>
               <div className="relative">
                 <Input
@@ -1287,7 +1230,9 @@ export function DoctorRegisterForm({ onSuccess, onSwitchToLogin, initialData, is
                   {showConfirmPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              {errors.confirmPassword && <p className="text-xs text-destructive mt-1">{errors.confirmPassword}</p>}
+              {errors.confirmPassword && (
+                <p className="text-xs text-destructive mt-1">{errors.confirmPassword}</p>
+              )}
             </div>
           )}
         </div>
@@ -1298,7 +1243,9 @@ export function DoctorRegisterForm({ onSuccess, onSwitchToLogin, initialData, is
         <div className="space-y-2 mt-2">
           <div className="flex gap-1 text-[10px] sm:text-xs uppercase tracking-[0.18em] text-muted-foreground">
             <span>Seguridad</span>
-            <span className="ml-auto font-medium">{strengthLabel(passwordStrength(form.password))}</span>
+            <span className="ml-auto font-medium">
+              {strengthLabel(passwordStrength(form.password))}
+            </span>
           </div>
           <div className="flex h-1.5 gap-1">
             {[...Array(4)].map((_, i) => (
@@ -1313,27 +1260,33 @@ export function DoctorRegisterForm({ onSuccess, onSwitchToLogin, initialData, is
 
       <div className="pt-2">
         <Button type="submit" variant="default" size="lg" className="w-full" disabled={submitting}>
-          {submitting ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <RefreshCw className="h-4 w-4 mr-2" />}
+          {submitting ? (
+            <Loader2 className="h-5 w-5 animate-spin mr-2" />
+          ) : (
+            <RefreshCw className="h-4 w-4 mr-2" />
+          )}
           {initialData ? "Guardar Cambios" : "Crear Cuenta"}
         </Button>
       </div>
 
-      <div className="text-center text-sm text-muted-foreground border-t pt-4">
-        ¿Ya tienes cuenta?{" "}
-        <button
-          type="button"
-          onClick={() => {
-            if (onSwitchToLogin) {
-              onSwitchToLogin();
-            } else {
-              navigate("/login");
-            }
-          }}
-          className="text-primary font-medium hover:underline"
-        >
-          Inicia sesión aquí
-        </button>
-      </div>
+      {!isAdminMode && (
+        <div className="text-center text-sm text-muted-foreground border-t pt-4">
+          ¿Ya tienes cuenta?{" "}
+          <button
+            type="button"
+            onClick={() => {
+              if (onSwitchToLogin) {
+                onSwitchToLogin();
+              } else {
+                navigate("/login");
+              }
+            }}
+            className="text-primary font-medium hover:underline"
+          >
+            Inicia sesión aquí
+          </button>
+        </div>
+      )}
     </form>
   );
 }

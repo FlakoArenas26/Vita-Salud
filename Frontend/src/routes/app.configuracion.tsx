@@ -1,21 +1,20 @@
 import { FormEvent, useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Save, User, Briefcase, Stethoscope, Award, Fingerprint } from "lucide-react";
+import { Save, User, Briefcase, Stethoscope, Award, Fingerprint, Loader2 } from "lucide-react";
 import { 
-  getCurrentUser, 
-  updatePaciente, 
-  updateMedico, 
+  setCurrentUser,
   tiposDocumento, 
   especialidades,
   type Paciente, 
   type Doctor 
-} from "@/lib/mockData";
+} from "@/lib/auth";
 import {
   fetchDepartamentos,
   fetchCiudadesByDepartamento,
   type Departamento,
   type Ciudad,
 } from "@/lib/colombiaApi";
+import { apiService } from "@/lib/apiService";
 import { Button } from "@/components/ui/button";
 import { Combobox, ComboboxContent, ComboboxEmpty, ComboboxInput, ComboboxItem, ComboboxList } from "@/components/ui/combobox";
 import Swal from "sweetalert2";
@@ -25,7 +24,9 @@ import Swal from "sweetalert2";
  * Permite tanto a pacientes como a médicos actualizar su información profesional y personal.
  */
 export default function ConfiguracionPage() {
-  const user = getCurrentUser();
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
   
   // Estado polimórfico del formulario
   const [form, setForm] = useState({
@@ -47,20 +48,31 @@ export default function ConfiguracionPage() {
   const [loadingCities, setLoadingCities] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      setForm({
-        tipoDocumento: (user as any).tipoDocumento || "CC",
-        nombre: user.nombre,
-        identificacion: user.identificacion,
-        departamentoId: String(user.departamentoId),
-        ciudadId: String(user.ciudadId),
-        email: user.email,
-        edad: user.rol === "paciente" ? String((user as Paciente).edad) : "",
-        especialidad: user.rol === "medico" ? (user as Doctor).especialidad : "",
-        tarjetaProfesional: user.rol === "medico" ? (user as Doctor).tarjetaProfesional : "",
-        experienciaAnios: user.rol === "medico" ? String((user as Doctor).experienciaAnios) : "",
-      });
+    async function loadProfile() {
+      try {
+        const response = await apiService.users.getProfile();
+        const userData = response.data;
+        setUser(userData);
+        
+        setForm({
+          tipoDocumento: userData.tipoDocumento || "CC",
+          nombre: userData.nombre,
+          identificacion: userData.identificacion,
+          departamentoId: String(userData.departamentoId),
+          ciudadId: String(userData.ciudadId),
+          email: userData.email,
+          edad: userData.rol === "PACIENTE" ? String(userData.edad || "") : "",
+          especialidad: userData.rol === "MEDICO" ? userData.doctor?.especialidad || "" : "",
+          tarjetaProfesional: userData.rol === "MEDICO" ? userData.doctor?.tarjetaProfesional || "" : "",
+          experienciaAnios: userData.rol === "MEDICO" ? String(userData.doctor?.experienciaAnios || "") : "",
+        });
+      } catch (error) {
+        console.error("Error loading profile:", error);
+      } finally {
+        setLoading(false);
+      }
     }
+    loadProfile();
   }, []);
 
   useEffect(() => {
@@ -94,44 +106,50 @@ export default function ConfiguracionPage() {
       return;
     }
 
-    const dep = departamentos.find((d) => d.id === parseInt(form.departamentoId));
-    const ciu = ciudades.find((c) => c.id === parseInt(form.ciudadId));
+    setSubmitting(true);
 
-    if (user.rol === "medico") {
-      const updated: Doctor = {
-        ...(user as Doctor),
-        tipoDocumento: form.tipoDocumento,
+    try {
+      const updateData: any = {
         nombre: form.nombre.trim(),
-        identificacion: form.identificacion.trim(),
-        especialidad: form.especialidad,
-        tarjetaProfesional: form.tarjetaProfesional,
-        experienciaAnios: parseInt(form.experienciaAnios) || 0,
-        departamentoId: dep?.id ?? user.departamentoId,
-        ciudadId: ciu?.id ?? user.ciudadId,
-      };
-      updateMedico(updated);
-    } else if (user.rol === "paciente") {
-      const updated: Paciente = {
-        ...(user as Paciente),
         tipoDocumento: form.tipoDocumento,
-        nombre: form.nombre.trim(),
         identificacion: form.identificacion.trim(),
-        edad: parseInt(form.edad) || 20,
-        departamentoId: dep?.id ?? user.departamentoId,
-        departamentoNombre: dep?.name ?? (user as Paciente).departamentoNombre,
-        ciudadId: ciu?.id ?? user.ciudadId,
-        ciudadNombre: ciu?.name ?? (user as Paciente).ciudadNombre,
+        departamentoId: parseInt(form.departamentoId),
+        ciudadId: parseInt(form.ciudadId),
       };
-      updatePaciente(updated);
+
+      if (user.rol === "MEDICO") {
+        updateData.especialidad = form.especialidad;
+        updateData.tarjetaProfesional = form.tarjetaProfesional;
+        updateData.experienciaAnios = parseInt(form.experienciaAnios) || 0;
+      } else if (user.rol === "PACIENTE") {
+        updateData.edad = parseInt(form.edad) || 20;
+      }
+
+      const response = await apiService.users.updateProfile(updateData);
+      setUser(response.data);
+      setCurrentUser(response.data); // Sincronizar con mockData helper if needed
+
+      Swal.fire({
+        icon: "success",
+        title: "Perfil actualizado",
+        text: "Tus datos han sido guardados correctamente.",
+        timer: 2000,
+        showConfirmButton: false,
+      });
+    } catch (error: any) {
+      Swal.fire("Error", error.message || "No se pudo actualizar el perfil", "error");
+    } finally {
+      setSubmitting(false);
     }
+  }
 
-    Swal.fire({
-      icon: "success",
-      title: "Perfil actualizado",
-      text: "Tus datos han sido guardados correctamente.",
-      timer: 2000,
-      showConfirmButton: false,
-    });
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-primary" />
+        <p className="text-muted-foreground animate-pulse">Cargando perfil...</p>
+      </div>
+    );
   }
 
   if (!user) return null;
@@ -142,11 +160,11 @@ export default function ConfiguracionPage() {
     <div className="max-w-2xl mx-auto space-y-6 pb-12">
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-2xl font-bold text-foreground font-heading flex items-center gap-2">
-          {user.rol === "medico" ? <Stethoscope className="h-6 w-6 text-primary" /> : <User className="h-6 w-6 text-primary" />}
-          Mi Perfil {user.rol === "medico" ? "Médico" : "Personal"}
+          {user.rol === "MEDICO" ? <Stethoscope className="h-6 w-6 text-primary" /> : <User className="h-6 w-6 text-primary" />}
+          Mi Perfil {user.rol === "MEDICO" ? "Médico" : "Personal"}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
-          {user.rol === "medico" ? "Gestiona tu información profesional y contacto." : "Actualiza tus datos personales y de contacto."}
+          {user.rol === "MEDICO" ? "Gestiona tu información profesional y contacto." : "Actualiza tus datos personales y de contacto."}
         </p>
       </motion.div>
 
@@ -184,7 +202,7 @@ export default function ConfiguracionPage() {
 
         {/* Nombre y Edad/Especialidad */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className={user.rol === "paciente" ? "col-span-1" : "col-span-2"}>
+          <div className={user.rol === "PACIENTE" ? "col-span-1" : "col-span-2"}>
             <label className="block text-sm font-medium mb-1.5">Nombre Completo</label>
             <input 
               type="text" 
@@ -193,7 +211,7 @@ export default function ConfiguracionPage() {
               className={inputClass} 
             />
           </div>
-          {user.rol === "paciente" && (
+          {user.rol === "PACIENTE" && (
             <div>
               <label className="block text-sm font-medium mb-1.5">Edad</label>
               <input 
@@ -207,7 +225,7 @@ export default function ConfiguracionPage() {
         </div>
 
         {/* Campos exclusivos para Médicos */}
-        {user.rol === "medico" && (
+        {user.rol === "MEDICO" && (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-border mt-4 overflow-visible">
                <div className="col-span-2 sm:col-span-1">
@@ -297,8 +315,9 @@ export default function ConfiguracionPage() {
           <p className="text-[10px] text-muted-foreground mt-1">El correo electrónico no puede ser modificado por políticas de seguridad.</p>
         </div>
 
-        <Button type="submit" variant="default" size="lg" className="w-full shadow-lg">
-          <Save className="h-4 w-4 mr-2" /> Guardar Cambios
+        <Button type="submit" variant="default" size="lg" className="w-full shadow-lg" disabled={submitting}>
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
+          Guardar Cambios
         </Button>
       </form>
     </div>

@@ -188,3 +188,8 @@
 .swal2-container {
   z-index: 11000 !important;
 }
+
+.swal2-actions {
+  gap: 0.75rem;
+}
+
