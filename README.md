@@ -1,6 +1,7 @@
 # VitaSalud - Plataforma de Gestión Médica Integral
 
 ## 📋 Descripción del Proyecto
+
 VitaSalud es una aplicación web moderna orientada a la gestión eficiente de procesos clínicos y administrativos dentro de un centro médico. La plataforma permite la interacción coordinada entre **Administradores, Médicos y Pacientes**, centralizando el ciclo completo de autenticación, gestión de usuarios, agendamiento, reprogramación, atención y seguimiento de citas médicas.
 
 Este proyecto fue desarrollado en el marco de la asignatura de **Desarrollo Web** del programa de **Ingeniería de Sistemas (10mo semestre)**, con un enfoque no solo funcional, sino también arquitectónico, documental y demostrativo. Por ello, además de resolver el flujo operativo del sistema, se diseñó una estructura técnica sólida basada en **Frontend + Backend desacoplados**, documentación Swagger y una explicación explícita de cómo se aplicó el patrón **MVC** junto con una **capa de servicios** para aislar la lógica de negocio.
@@ -8,6 +9,7 @@ Este proyecto fue desarrollado en el marco de la asignatura de **Desarrollo Web*
 ---
 
 ## 🎯 Objetivo del Sistema
+
 VitaSalud busca digitalizar y organizar la operación básica de una plataforma médica mediante:
 
 - autenticación por roles
@@ -24,6 +26,7 @@ VitaSalud busca digitalizar y organizar la operación básica de una plataforma 
 ## 👥 Actores del Sistema
 
 ### Paciente
+
 - registro e inicio de sesión
 - consulta de médicos disponibles
 - agendamiento de citas
@@ -33,6 +36,7 @@ VitaSalud busca digitalizar y organizar la operación básica de una plataforma 
 - recepción de alertas cuando una cita cambia o cuando el médico carga recomendaciones
 
 ### Médico
+
 - inicio de sesión
 - visualización de agenda propia
 - atención de pacientes
@@ -40,6 +44,7 @@ VitaSalud busca digitalizar y organizar la operación básica de una plataforma 
 - recepción de alertas cuando se agenda, cancela o reprograma una cita
 
 ### Administrador
+
 - visualización global de usuarios
 - gestión de médicos del sistema
 - activación y desactivación de médicos
@@ -49,6 +54,7 @@ VitaSalud busca digitalizar y organizar la operación básica de una plataforma 
 ---
 
 ## 🏗️ Arquitectura General del Proyecto
+
 El proyecto está dividido en dos aplicaciones desacopladas:
 
 - `Frontend/`: capa de presentación desarrollada con React, TypeScript y Vite
@@ -64,9 +70,11 @@ Esta separación permite:
 ---
 
 ## 🧱 Aplicación del Patrón MVC
+
 Uno de los requerimientos clave del proyecto es la implementación del patrón **Modelo - Vista - Controlador (MVC)**. En VitaSalud este patrón se aplicó principalmente en el backend, mientras que el frontend actúa como la capa visual consumidora de la API.
 
 ### 1. Model
+
 La capa **Model** está representada por los modelos Sequelize definidos en `Backend/src/models/`.
 
 Su responsabilidad es:
@@ -82,6 +90,7 @@ Entidades principales:
 - `Appointment`: vínculo transaccional entre paciente y médico
 
 ### 2. Controller
+
 La capa **Controller** está implementada en `Backend/src/controllers/`.
 
 Su responsabilidad es:
@@ -94,6 +103,7 @@ Su responsabilidad es:
 Es decir, los controladores no concentran la lógica clínica o de negocio, sino que coordinan el flujo entre entrada y salida.
 
 ### 3. View
+
 En una arquitectura web desacoplada como esta, la **View** no vive dentro del backend, sino en el frontend React.
 
 La vista está implementada en:
@@ -109,6 +119,7 @@ Esta capa se encarga de:
 - mostrar estados, alertas y resultados
 
 ### 4. ¿Por qué se mantuvo MVC aunque haya frontend separado?
+
 Porque el backend sigue respetando claramente la separación entre:
 
 - representación de datos (`models`)
@@ -120,6 +131,7 @@ Y el frontend cumple el papel de vista desacoplada del sistema.
 ---
 
 ## 🔧 ¿Por qué se añadió una Capa de Servicios?
+
 Aunque MVC ya organiza responsabilidades, en sistemas medianos o escalables no es recomendable sobrecargar los controladores con reglas de negocio. Por eso se añadió una **Service Layer** en `Backend/src/services/`.
 
 ### Beneficios de esta decisión
@@ -137,6 +149,7 @@ Aunque MVC ya organiza responsabilidades, en sistemas medianos o escalables no e
 - `user.service.ts` centraliza actualización, consulta y administración de usuarios
 
 ### Resultado arquitectónico
+
 El backend queda estructurado como:
 
 - `routes`: definen endpoints y middleware
@@ -189,6 +202,7 @@ vita-salud/
 ## 🚀 Tecnologías Utilizadas
 
 ### Frontend
+
 - React 19
 - TypeScript
 - Vite 7
@@ -198,6 +212,7 @@ vita-salud/
 - SweetAlert2
 
 ### Backend
+
 - Node.js
 - Express
 - TypeScript
@@ -258,11 +273,11 @@ Si el backend corre en otra URL, se debe configurar `VITE_API_URL`.
 
 Los usuarios se crean automáticamente al iniciar el backend por primera vez:
 
-| Rol | Usuario | Contraseña | Especialidad |
-|---|---|---|---|
-| Admin | `admin@vitasalud.com` | `Admin123456*!` | - |
-| Médico | `carlos.garcia@vitasalud.com` | `Medico123456*!` | Medicina General |
-| Médico | `maria.martinez@vitasalud.com` | `Medico123456*!` | Pediatría |
+| Rol     | Usuario                          | Contraseña        | Especialidad     |
+| ------- | -------------------------------- | ------------------ | ---------------- |
+| Admin   | `admin@vitasalud.com`          | `Admin123456*!`  | -                |
+| Médico | `carlos.garcia@vitasalud.com`  | `Medico123456*!` | Medicina General |
+| Médico | `maria.martinez@vitasalud.com` | `Medico123456*!` | Pediatría       |
 
 ---
 
@@ -280,63 +295,21 @@ Los usuarios se crean automáticamente al iniciar el backend por primera vez:
 ---
 
 ## 📘 API y Documentación
+
 Con el backend ejecutándose:
 
 - Swagger UI: `http://localhost:3000/api-docs`
 - Health check: `http://localhost:3000/health`
 - guía ampliada de endpoints: `Backend/SWAGGER.md`
 
----
-
-## 🎥 Guion Sugerido para el Video Explicativo
-
-### 1. Presentación del proyecto
-- nombre del sistema
-- problema que resuelve
-- actores involucrados
-
-### 2. Explicación arquitectónica
-- separación frontend/backend
-- uso de MySQL
-- implementación de MVC
-- necesidad de la capa de servicios
-- autenticación JWT y documentación Swagger
-
-### 3. Flujo del paciente
-1. registro o login
-2. consulta de médicos
-3. revisión de disponibilidad
-4. agendamiento de cita
-5. reprogramación
-6. recepción de recomendaciones
-
-### 4. Flujo del médico
-1. ingreso al dashboard
-2. visualización de agenda
-3. demostración de alertas
-4. atención del paciente
-5. generación de recomendaciones
-
-### 5. Flujo del administrador
-1. listado de usuarios
-2. creación de médico
-3. activación/desactivación
-4. carga masiva si se desea mostrar
-
-### 6. Cierre técnico
-- reglas de negocio
-- separación de responsabilidades
-- mantenibilidad del sistema
-- documentación y trazabilidad de endpoints
-
----
-
 ## 👨‍💻 Autores
+
 - **Rafael José Arenas Restrepo**
 - **Valeria Martínez Castañeda**
 - **Miguel Ángel Herrera Oyola**
 
 ---
-**Asignatura:** Desarrollo Web  
-**Programa:** Ingeniería de Sistemas - 10mo Semestre  
+
+**Asignatura:** Desarrollo Web
+**Programa:** Ingeniería de Sistemas - 10mo Semestre
 **Institución:** Fundación Universitaria del Área Andina
