@@ -256,13 +256,13 @@ Si el backend corre en otra URL, se debe configurar `VITE_API_URL`.
 
 ## 🔐 Usuarios de Prueba
 
-| Rol | Usuario | Contraseña |
-|---|---|---|
-| Admin | `admin@vitasalud.com` | `Admin1234` |
-| Médico | `carlos.mendez@vitasalud.com` | `Doctor1234` |
-| Médico | `laura.gomez@vitasalud.com` | `Doctor1234` |
-| Paciente | `juan.perez@email.com` | `Paciente1234` |
-| Paciente | `maria.lopez@email.com` | `Paciente1234` |
+Los usuarios se crean automáticamente al iniciar el backend por primera vez:
+
+| Rol | Usuario | Contraseña | Especialidad |
+|---|---|---|---|
+| Admin | `admin@vitasalud.com` | `Admin123456*!` | - |
+| Médico | `carlos.garcia@vitasalud.com` | `Medico123456*!` | Medicina General |
+| Médico | `maria.martinez@vitasalud.com` | `Medico123456*!` | Pediatría |
 
 ---
 

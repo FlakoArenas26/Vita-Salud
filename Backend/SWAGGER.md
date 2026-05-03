@@ -330,6 +330,7 @@ Body:
 - Integración probada con frontend para sincronización de notificaciones.
 - Recomendaciones IA modificadas para generar 3-5 ítems aleatorios por paciente.
 - Eliminada carpeta MCP no utilizada para limpieza de código.
+- Eliminadas migraciones y seeders no utilizados; BD se crea automáticamente.
 
 ## 9. Nota importante sobre la documentación
 

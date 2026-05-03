@@ -151,22 +151,18 @@ Variables esperadas:
 
 ### 3. Crear base de datos
 
-```sql
-CREATE DATABASE vitasalud CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-```
+La base de datos se crea automáticamente al ejecutar la aplicación. No requiere comandos manuales.
 
-### 4. Migraciones y seeders
-
-```bash
-npm run db:migrate
-npm run db:seed
-```
-
-### 5. Ejecución
+### 4. Ejecutar la aplicación
 
 ```bash
 npm run dev
 ```
+
+Al iniciar, la aplicación:
+- Crea la base de datos si no existe
+- Sincroniza las tablas automáticamente
+- Inserta datos de prueba iniciales
 
 ## Scripts disponibles
 
@@ -175,11 +171,6 @@ npm run dev
 | `npm run dev` | inicia servidor en desarrollo |
 | `npm run build` | compila TypeScript |
 | `npm start` | ejecuta build compilado |
-| `npm run db:migrate` | aplica migraciones |
-| `npm run db:migrate:undo` | revierte migraciones |
-| `npm run db:seed` | ejecuta seeders |
-| `npm run db:seed:undo` | revierte seeders |
-| `npm run db:reset` | reinicia migraciones y seeders |
 
 ## Endpoints principales
 
@@ -233,13 +224,13 @@ npm run dev
 
 ## Usuarios de prueba
 
-| Rol | Email | Password |
-|---|---|---|
-| Admin | `admin@vitasalud.com` | `Admin1234` |
-| Médico | `carlos.mendez@vitasalud.com` | `Doctor1234` |
-| Médico | `laura.gomez@vitasalud.com` | `Doctor1234` |
-| Paciente | `juan.perez@email.com` | `Paciente1234` |
-| Paciente | `maria.lopez@email.com` | `Paciente1234` |
+Los usuarios se crean automáticamente al iniciar la aplicación por primera vez:
+
+| Rol | Email | Password | Especialidad |
+|---|---|---|---|
+| Admin | `admin@vitasalud.com` | `Admin123456*!` | - |
+| Médico | `carlos.garcia@vitasalud.com` | `Medico123456*!` | Medicina General |
+| Médico | `maria.martinez@vitasalud.com` | `Medico123456*!` | Pediatría |
 
 ## Archivos clave para sustentación
 
